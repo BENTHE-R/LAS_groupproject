@@ -1,0 +1,462 @@
+---
+title: "Proteomics_group_project_DATA_EXPLORATION"
+output:
+  pdf_document: default
+  html_document: default
+date: "2025-11-13"
+---
+DATA EXPLORATION: 
+
+```{r}
+install.packages("tidyverse")
+library(tidyverse)
+library(dplyr) 
+library(ggplot2)
+library(readr)
+library(ComplexHeatmap)
+install.packages("circlize")
+library(circlize)
+
+# Install Bioconductor
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(version = "3.21")
+
+# Bioconductor option
+BiocManager::install("ComplexHeatmap")
+```
+
+# Introduction
+
+## Background information: Abstract article
+
+Patients with end-stage kidney disease (ESKD) are at high risk of severe COVID-19. Here, we perform longitudinal blood sampling of ESKD haemodialysis patients with COVID-19, collecting samples pre-infection, serially duringinfection, and after clinical recovery. Using plasma proteomics, and RNA-sequencing and ow cytometry of immune cells, we identify transcriptomic and proteomic signatures of COVID-19 severity, and nd distinct temporal molecular pro les in patients with severe disease. Supervised learning reveals that the plasma proteome is a superior indicator of clinical severity than the PBMC transcriptome. We show that a decreasing trajectory of plasma LRRC15 (Leucine-rich repeat containing 15), a proposed co-receptor for SARS-CoV-2, is associated with a more severe clinical course. We observe that two months after the acute infection, patients still display dysregulated gene expression related to vascular, platelet and coagulation pathways, including PF4 (platelet factor 4), which may explain the prolonged thrombotic risk following COVID-19.
+
+## Background information: Methodology 
+
+###Test subjects
+
+All study objects were ESKD patients. 
+
+In the first COVID-19 wave:
+  - Group of 53 patients infected with COVID-19 was selected
+  - Group of 59 patients not infected with COVID-19 was selected as a negative control
+->Serial blood sampling over a period of time
+
+In the second COVID-19 wave:
+17 patients in the negative controle groupe got infected with COVID-19
+-> Also serial blood sampling.
+From these patients we have blood samples from a period the were negative and positive for COVID-19
+
+### Plasma proteomics
+The proteome is studied using the SomaScan assay (explained: https://www.youtube.com/watch?v=fg4mlG0nGLw), this technique measures the concentration of a set of target proteins. 
+Modified aptamers = Somamers are used -> single stranded nucleic acid molecules with modified bases. These Somameres bind with high affinity to a specific protein, used as an alternative for antibodies, and are used to select a specific set of proteins.
+SomaScan v4.1 assay contains 7288 Somameres, 48 Somamers were removed due to QC failure, so the final dataset contains 7240 Somamers representing 6323 unique proteins.
+
+Data Processing Protocol: 48 Somamers were removed due to QC failure, so the final post-QC dataset contained 7240 Somamers representing 6323 unique proteins. Where multiple Somamers related to the same protein, we retained these Somamers for univariate analyses such as differential abundance asnalyses. However, for analyses that considered multiple proteins simultaneously, we selected one Somamer at random to represent each protein. One COVID-19 positive sample in the wave 2 cohort failed QC and was excluded from the analyses. The expression values for each Somamer were inverse-rank normalised prior to downstream analyses. For the Wave 1 cohort, proteomic data were available for 86 samples from 37 COVID-19 positive ESKD patients (median 3 samples per patient, range 1-3), plus 53 non-infected ESKD patients. For the Wave 2 cohort (n = 17 patients), following QC, proteomic data were available for 102 samples collected serially during acute COVID-19 infection (median of 6 samples per patient, range 5–7) and 16 pre-infection samples. For one patient, a pre-infection plasma sample was unavailable. In the original manuscript (https://doi.org/10.1038/s41467-022-35454-4) we performed extensive downstream analysis. These included: i) differential protein abundance analyses comparing COVID-19 cases and controls; ii) differential protein abundance identifying associations with COVID-19 severity; iii) modelling of temporal protein profiles for both protein modules and 232 cytokines; and iv) prediction of COVID-19 severity from the proteome.
+
+COVID positive Wave 1 53 - 16 = 37
+COVID Negative Wave 1 59 - 6 = 53
+COVID positive wave 2 17 -1
+
+#1 importing data sets 
+```{r}
+combined_dataset <- read.csv("combined_dataset.csv")
+features_somameres <- read.csv("feature_meta.csv")
+```
+
+#2 start of data exploration
+This function head() was used to display the first few rows of the dataset, providing a quick overview of the data structure and allowing us to verify that the dataset was loaded correctly.
+```{r}
+head(combined_dataset)
+head(features_somameres)
+```
+ 
+the use of dim() is used to return the number of rows and columns, providing an overview of dataset size.
+```{r}
+dim(combined_dataset) 
+dim(feature_meta)
+```
+
+splitting the 'combined_dataset' to seperate protein expression values from features  
+```{r}
+combined_dataset_protein <-combined_dataset[,1:7241]
+combined_dataset_features <-combined_dataset[,7242:7258]
+```
+
+colnames() to verify variable labels and ensure consistency in further analysis. 
+```{r}
+colnames(combined_dataset_features)
+colnames(features_somameres)
+```
+
+summary() produces basic descriptive statistics for each variable. This was also applied to the combined_dataset but removed due to excessive output size. 
+```{r}
+summary(features_somameres)
+```
+
+skimr() provides a more detailled summary, including missing values. Tested on the combined_dataset but excluded for the same reason as previous code. 
+```{r}
+install.packages("skimr")
+library(skimr)
+skim(feature_somameres)
+skim
+```
+
+str() is used to display the data types. 
+```{r}
+str(feature_somameres)
+str(combined_dataset_features)
+```
+
+This code was applied to convert categorical variables from character to factor type (excluding protein_id), ensuring that these variables are properly recognized as discrete categories in statistical analyses.
+```{r}
+clinical_data <- c("ethnicity", "sex", "ihd", "previous_vte","copd", "diabetes", "smoking", "cause_eskd",
+  "WHO_severity", "WHO_temp_severity", "case_control","radiology_evidence_covid", "fatal_disease")
+combined_dataset_features[clinical_data] <- lapply((combined_dataset_features[clinical_data]),factor)
+
+# checking if data types changed correctly
+levels(combined_dataset_features$copd)
+```
+
+duplicated() applied to identify repeated entries within the dataset.
+```{r}
+duplicated_colnames1 <- duplicated(colnames(features_somameres))
+true_values1 <- which(duplicated_colnames1)
+true_values1
+
+duplicated_colnames <- duplicated(colnames(combined_dataset_features))
+true_values2 <- which(duplicated_colnames)
+true_values2
+
+duplicated_rownames <- duplicated(feature_somameres)
+true_values3 <- which(duplicated_rownames)
+true_values3
+
+duplicated_rownamess <- duplicated(combined_dataset_features)
+true_values4 <- which(duplicated_rownamess)
+true_values4
+```
+integer(0) indicates that no duplicate entries were detected in the dataset
+
+based on visual inspection of the dataset 'feature_somameres', suspicion arises that the column 'col_check' only has one value across all the rows, so this was verified using the following code.
+```{r}
+unique(feature_somameres$col_check)
+```
+
+Previous suspicion was confirmed so this column is deleted. Since variables with only one constant value do not contribute any meaningful information to statistical analysis, the column was removed to reduce redundancy.
+```{r}
+feature_somameres <- feature_somameres %>% select(-c(col_check))
+head(feature_somameres)
+```
+
+##3 Subsets data
+We create these subsets during our data exploration to isolate specific patient groups and better understand patterns related to case-control status and wave-specific characteristics.
+```{r}
+# Make a list with all the negative patients in the first wave
+negatives_wave1 <- c()
+for (i in 1:length(combined_dataset_features$case_control)){
+  if (combined_dataset_features$case_control[i] == "NEGATIVE") {negatives_wave1 <- c(negatives_wave1, combined_dataset_features$individual_id[i])}
+}
+
+# Make a list with all the positive patients in the first wave
+positives_wave1 <- c()
+for (i in 1:length(combined_dataset_features$case_control)){
+  id_in_negative_wave1 <- combined_dataset_features$individual_id[i] %in% negatives_wave1
+  if (combined_dataset_features$case_control[i] == "POSITIVE" & id_in_negative_wave1 == FALSE) {
+    id_in_positive_wave1 <- combined_dataset_features$individual_id[i] %in% positives_wave1
+    if (id_in_positive_wave1 == FALSE){
+      positives_wave1 <- c(positives_wave1, combined_dataset_features$individual_id[i])
+    }
+  }
+}
+
+# Make a list with all the positive patients in the second wave
+positives_wave2 <- c()
+for (i in 1:length(combined_dataset_features$case_control)){
+  id_in_negative_wave1 <- combined_dataset_features$individual_id[i] %in% negatives_wave1
+  if (combined_dataset_features$case_control[i] == "POSITIVE" & id_in_negative_wave1 == "TRUE"){
+    id_in_positive_wave2 <- combined_dataset_features$individual_id[i] %in% positives_wave2
+    if (id_in_positive_wave2 == FALSE){
+      positives_wave2 <- c(positives_wave2, combined_dataset_features$individual_id[i])
+    }
+  }
+}
+
+# Features Wave 1 COVID negative patients
+features_wave1_COVID_negative <- combined_dataset_features %>% filter(case_control == "NEGATIVE")
+
+```
+
+#4 Paired samples per individual
+grouping the data by individual to assess how many measurements each patient has
+```{r}
+
+paired_combined <- combined_dataset %>%
+  group_by(individual_id) 
+
+paired_combined %>% 
+  count(individual_id)
+```
+
+```{r}
+
+paired_combined<- combined_dataset %>%
+  group_by(individual_id) %>%
+  summarise(n_samples = n())
+
+
+paired_combined <- paired_combined %>%
+  summarise (
+    n_eq_1 = sum (n_samples ==1),
+    n_gt_1 = sum (n_samples >1)
+  )
+
+paired_combined
+
+```
+
+#5 missing values 
+checking for missing values in proteins 
+```{r}
+# maak een nieuwe df voor enkel de proteinen -> snap ik niet echt 
+combined_dataset[combined_dataset == "NA"] <- NA 
+
+
+#display number of missing values per column
+col_missing <- colSums(is.na(proteins_df))
+summary(col_missing)
+```
+INTERPRETATION: no missing values found 
+
+checking for missing values in patient characteristics 
+```{r}
+# Missing values summary
+missing_summary <- combined_dataset %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Missing_Values") %>%
+  mutate(Missing_Percentage = (Missing_Values / nrow(combined_dataset)) * 100) %>%
+  arrange(desc(Missing_Percentage))
+
+#looking at the top 20 of missing_summary
+head(missing_summary, 20)
+
+# Barplot of percentage missing per variable
+missing_summary %>%
+  filter(Missing_Values > 0) %>%  # selecting only missing values 
+  ggplot(aes(x = reorder(Variable, Missing_Percentage), y = Missing_Percentage)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Percentage of Missing Values by Variable",
+       x = "Variable",
+       y = "Percentage of Missing Values") +
+  theme_minimal()
+is.na
+```
+INTERPRETATION:
+The missing values have been examined and we note that in WHO_severity, fatal_disease, radiology_evidence_covid, and time_from_first_positive_swab there are each  53 missing values. This could indicate that 53 individuals consistently have a missing value in these columns.We will investigate this further by transposing data and calculating the percentage of missing value per person.   
+
+```{r}
+# transpose the data (column becomes row and vice versa)
+transposed_df <- t(feature_df)
+transposed_df <- as.data.frame(t(feature_df))
+
+# calculate the percentage of missing value per person
+missing_summary <- transposed_df %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%   # number of NAs per column
+  pivot_longer(cols = everything(),
+               names_to = "Variable",
+               values_to = "Missing_Values") %>%
+  mutate(Missing_Percentage = (Missing_Values / ncol(transposed_df)) * 100) %>%  # number of examples
+  arrange(desc(Missing_Percentage))
+
+
+missing_summary
+```
+INTERPRETATION:
+After analyzing the data, it appears to be a bias. Whenever there is an NA in one of the columns, the other columns also have an NA. This results in the same number of missing values for WHO_severity, fatal_disease, radiology_evidence_covid, and time_from_first_positive_swab.
+
+#6 data outliers
+nele haar deel, houden we dat? 
+```{r}
+outlier_list <- sapply(proteins_df[,2:7241], function(x) {
+  Q1 <- quantile(x, 0.25, na.rm=TRUE)
+  Q3 <- quantile(x, 0.75, na.rm=TRUE)
+  IQR <- Q3 - Q1
+  sum(x < (Q1 - 1.5*IQR) | x > (Q3 + 1.5*IQR))
+})
+
+# Toont aantal outliers per proteïne
+outlier_list <- outlier_list[outlier_list > 0]
+outlier_list
+```
+
+senne: 
+Finding out how the protein abundances are distributed and if there are big outliers
+```{r}
+# Pivot the protein abundances dataframe (combindes_dataset_protein) to a longer dataframe
+pivot_longer_proteins <- combined_dataset_protein %>% 
+  pivot_longer(!X, names_to = "prots", values_to = "abundances") 
+
+# Visualisation of the distribution of the protein abundances
+pivot_longer_proteins %>%
+  ggplot(aes(x = abundances))+
+  geom_histogram(binwidth = 5000)+
+  theme_classic()+
+  labs(title = "Distribution protein abundances")
+
+# Identify outliers based on a boxplot
+pivot_longer_proteins %>%
+  ggplot(aes(x = abundances))+
+  geom_boxplot()+
+  theme_classic()+
+  labs(title = "Boxplot protein abundances")
+
+```
+INTERPRETATION:
+The histogram and box plot of all protein abundances clearly show a large number of outliers, with a long tail to the right.We will now look for a suitable cutoff value to reduce the number of outliers.
+
+```{r}
+# Calculate the median, and the standard deviation for the protein abundances. This will be used to set a cut of value.
+sd_prot_abundances <- sd(pivot_longer_proteins$abundances)
+median_prot_abundances <- median(pivot_longer_proteins$abundances)
+
+cat("median protein abundance: ", median_prot_abundances, "\n",
+    "sd protein abundance: ", sd_prot_abundances)
+
+# We will use the median+ 2sd as cut of, and see how many outliers remain
+cut_of <- median_prot_abundances + 2 * sd_prot_abundances
+
+pivot_longer_proteins_cut_of <- pivot_longer_proteins %>% 
+  filter(abundances <= cut_of)
+
+# Visualisation of the distribution of the protein abundances
+pivot_longer_proteins_cut_of %>%
+  ggplot(aes(x = abundances))+
+  geom_histogram(binwidth = 100)+
+  theme_classic()+
+  labs(title = "Distribution protein abundances below cut of")
+
+# Identify outliers based on a boxplot
+pivot_longer_proteins_cut_of %>%
+  ggplot(aes(x = abundances))+
+  geom_boxplot()+
+  theme_classic()+
+  labs(title = "Boxplot protein abundances below cut of")
+
+```
+
+#7 filtering
+
+GOAL: You want to remove proteins that almost never differ between individuals/conditions.
+HOW?
+- Filter **features**: Check whether certain features can be removed based on variation.
+- Filter **proteins**: Check again for significant variation (small variation provides little information). First do a global analysis and then per individual.
+
+#7.1 filtering features
+```{r}
+
+# It first counts how often each category occurs. Then, it takes the most common category and divides it by the total number of people. This tells you what percentage of the dataset consists of the largest category. If the dominance is higher than 80%, you know that one category strongly dominates, and therefore there is little variation.
+
+dominantie <- function(x){
+  tb <- table(x)
+  max(tb) / sum(tb) * 100
+}
+
+sapply(feature_df[2:17], dominantie)
+
+```
+INTERPRETATION:
+Based on this code we notice that previous_vte, copd and smoking have a low variation and are therefore not very informative.
+
+#7.2 filtering proteins
+```{r}
+
+cv <- function(x) {
+  sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE) * 100
+}
+
+variatie_per_eiwit <- sapply(proteins_df[,2:7241], cv)
+
+# proteins with a percentage lower than 20
+laag_variatie <- variatie_per_eiwit [variatie_per_eiwit < 10]
+laag_variatie
+
+```
+INTERPRETATION:
+The data is analyzed for cases and controls. It's important to note that a person in WAVE 1 could have been considered a control, but later developed COVID-19 and is therefore included as a case in WAVE 2. The filtering was performed per measurement, not per person. We know that this method fails to capture biological differences and differences between cases and controls, and therefore the test is not fully accurate. We choose to work independently of patients, but we recognize that this must be taken into account.
+
+#8 Normalisation
+The paper reports the following: “The expression values for each Somamer were inverse-rank normalised prior to downstream analyses.” However, it is not specified whether the dataset we received contains the raw expression values or values that have already undergone this normalisation. Therefore, our first step will be to determine whether additional normalisation is required.
+
+```{r}
+
+# total per sample
+# Sum the values in each row of your df. The NA values are ignored. Sample total is a vector with a length equal to the number of samples, where each value is the total protein intensity per sample.
+sample_totals <- rowSums(proteins_df [2:7241], na.rm=TRUE)
+
+# plot
+qplot(1:length(sample_totals), sample_totals) +
+  labs(x="sample index", y="Total protein intensity / sample") +
+  geom_hline(yintercept = median(sample_totals), linetype="dashed")
+
+```
+INTERPRETATION:
+In this figure, we compared the total intensity per sample. The median is the average value of all intensities. We would therefore expect all values to roughly converge around this dotted line, but that is not the case. Some samples are much higher or lower than others, meaning normalization is necessary.
+
+#9 log transformation
+The LRRC15 (-moet dit specifiek erbij?) protein values are not normally distributed, which necessitates the use of a log transformation. To evaluate the effect of this transformation, we generated histograms for a single protein before and after log transformation. This comparison illustrates the change in distribution. Following this assessment, the log transformation was applied to all protein measurements.
+
+histogram BEFORE transformation
+```{r}
+
+ggplot(proteins_df, aes(x = proteins_df$LRRC15)) +
+  geom_histogram(bins = 100, fill = "steelblue", color = "black", aplha = 0.7) +
+  labs(title = "Histogram of LRRC15",
+       x = "LRRC15 Protein concentration", y = "Frequency") +
+  theme_minimal()
+
+```
+
+histogram AFTER transformation
+```{r}
+ggplot(proteins_df, aes(x = log(proteins_df$LRRC15))) +
+  geom_histogram(bins = 100, fill = "steelblue", color = "black", aplha = 0.7) +
+  labs(title = "Histogram of LRRC15",
+       x = "LRRC15 Protein concentration", y = "Frequency") +
+  theme_minimal()
+```
+
+Log transformation of all data:
+```{r}
+# Normalise protein abundance
+proteins_log <- log(combined_dataset_protein[,2:7241])
+```
+
+Visualisation after the log tansformation:
+```{r}
+log_sample_totals <- rowSums(proteins_log, na.rm=TRUE)
+
+# plot
+qplot(1:length(log_sample_totals), log_sample_totals) +
+  labs(x="sample index", y="Total protein intensity / sample") +
+  geom_hline(yintercept = median(log_sample_totals), linetype="dashed")
+```
+INTERPRETATION:
+The normalisation appears to be successful, as the values now fall within a narrow range of approximately 50,000–52,000. In addition, the distribution shows greater symmetry around the mean, and large systematic differences between samples have been eliminated.
+
+#10 standarisation
+Standardisation is applied to ensure that all proteins are placed on a comparable scale before visualisation. Because proteins can vary greatly in their absolute abundance, these differences could dominate the heatmap and obscure meaningful patterns. By standardising the log-transformed protein values, we emphasise relative variation across samples, allowing clearer identification of clusters and expression patterns.A heatmap of the non-standardised data is shown first to visualise the raw differences, followed by a heatmap of the standardised data to demonstrate how standardisation improves comparability across proteins.
+```{r}
+# Standardise protein abundance
+protein_scaled <- as.data.frame(scale(proteins_log))
+
+# heatmap non-standardisised protein abundances
+Heatmap(combined_dataset_protein %>% column_to_rownames("X")  , use_raster = FALSE, show_row_names = FALSE, show_column_names = FALSE)
+
+
+# heatmap standarsised protein abundances 
+Heatmap(protein_scaled, use_raster = FALSE, show_row_names = FALSE, show_column_names = FALSE)
+```
+INTERPRETATION:
+hier moet best nog iets staan 
