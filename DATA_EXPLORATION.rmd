@@ -5,7 +5,7 @@ output:
   html_document: default
 date: "2025-11-13"
 ---
-DATA EXPLORATION: nele
+DATA EXPLORATION: 
 
 ```{r}
 #install.packages("tidyverse")
