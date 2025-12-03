@@ -99,13 +99,13 @@ skimr() provides a more detailled summary, including missing values. Tested on t
 ```{r}
 install.packages("skimr")
 library(skimr)
-skim(feature_somameres)
+skim(features_somameres)
 skim
 ```
 
 str() is used to display the data types. 
 ```{r}
-str(feature_somameres)
+str(features_somameres)
 str(combined_dataset_features)
 ```
 
@@ -116,6 +116,7 @@ clinical_data <- c("ethnicity", "sex", "ihd", "previous_vte","copd", "diabetes",
 combined_dataset_features[clinical_data] <- lapply((combined_dataset_features[clinical_data]),factor)
 
 # checking if data types changed correctly
+str(combined_dataset_features)
 levels(combined_dataset_features$copd)
 ```
 
@@ -129,7 +130,7 @@ duplicated_colnames <- duplicated(colnames(combined_dataset_features))
 true_values2 <- which(duplicated_colnames)
 true_values2
 
-duplicated_rownames <- duplicated(feature_somameres)
+duplicated_rownames <- duplicated(features_somameres)
 true_values3 <- which(duplicated_rownames)
 true_values3
 
@@ -141,12 +142,12 @@ integer(0) indicates that no duplicate entries were detected in the dataset
 
 based on visual inspection of the dataset 'feature_somameres', suspicion arises that the column 'col_check' only has one value across all the rows, so this was verified using the following code.
 ```{r}
-unique(feature_somameres$col_check)
+unique(features_somameres$col_check)
 ```
 
 Previous suspicion was confirmed so this column is deleted. Since variables with only one constant value do not contribute any meaningful information to statistical analysis, the column was removed to reduce redundancy.
 ```{r}
-feature_somameres <- feature_somameres %>% select(-c(col_check))
+feature_somameres <- features_somameres %>% select(-c(col_check))
 head(feature_somameres)
 ```
 
