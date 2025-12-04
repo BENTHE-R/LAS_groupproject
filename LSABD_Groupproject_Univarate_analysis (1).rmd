@@ -84,10 +84,10 @@ Independent variable (IV): Severity groups (categorical, e.g., mild, moderate, s
 ```{r}
 # For an ANOVA test, we need to check the normaility within the group
 df_univariate_analysis %>%
-  ggplot(aes(sample = MX1)) +
+  ggplot(aes(sample = MX1) +
   geom_qq() + 
-  geom_qq_line() +
-  facet_wrap(~WHO_temp_severity)
+  geom_qq_line() 
+  #facet_wrap(~WHO_temp_severity)
 
 ```
 Interpretatie normaliteit:
