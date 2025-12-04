@@ -75,7 +75,7 @@ head(features_somameres)
 the use of dim() is used to return the number of rows and columns, providing an overview of dataset size.
 ```{r}
 dim(combined_dataset) 
-dim(feature_meta)
+dim(features_meta)
 ```
 
 splitting the 'combined_dataset' to seperate protein expression values from features  
@@ -97,7 +97,7 @@ summary(features_somameres)
 
 skimr() provides a more detailled summary, including missing values. Tested on the combined_dataset but excluded for the same reason as previous code. 
 ```{r}
-install.packages("skimr")
+#install.packages("skimr")
 library(skimr)
 skim(features_somameres)
 skim
@@ -225,7 +225,7 @@ combined_dataset[combined_dataset == "NA"] <- NA
 
 
 #display number of missing values per column
-col_missing <- colSums(is.na(proteins_df))
+col_missing <- colSums(is.na(combined_dataset_protein))
 summary(col_missing)
 ```
 INTERPRETATION: no missing values found 
@@ -259,8 +259,8 @@ The missing values have been examined and we note that in WHO_severity, fatal_di
 
 ```{r}
 # transpose the data (column becomes row and vice versa)
-transposed_df <- t(feature_df)
-transposed_df <- as.data.frame(t(feature_df))
+transposed_df <- t(combined_dataset_features)
+transposed_df <- as.data.frame(t(combined_dataset_features))
 
 # calculate the percentage of missing value per person
 missing_summary <- transposed_df %>%
@@ -280,7 +280,7 @@ After analyzing the data, it appears to be a bias. Whenever there is an NA in on
 #6 data outliers
 nele haar deel, houden we dat? 
 ```{r}
-outlier_list <- sapply(proteins_df[,2:7241], function(x) {
+outlier_list <- sapply(combined_dataset_protein[,2:7241], function(x) {
   Q1 <- quantile(x, 0.25, na.rm=TRUE)
   Q3 <- quantile(x, 0.75, na.rm=TRUE)
   IQR <- Q3 - Q1
@@ -364,7 +364,7 @@ dominantie <- function(x){
   max(tb) / sum(tb) * 100
 }
 
-sapply(feature_df[2:17], dominantie)
+sapply(combined_dataset_features[2:17], dominantie)
 
 ```
 INTERPRETATION:
@@ -377,7 +377,7 @@ cv <- function(x) {
   sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE) * 100
 }
 
-variatie_per_eiwit <- sapply(proteins_df[,2:7241], cv)
+variatie_per_eiwit <- sapply(combined_dataset_protein[,2:7241], cv)
 
 # proteins with a percentage lower than 20
 laag_variatie <- variatie_per_eiwit [variatie_per_eiwit < 10]
@@ -394,7 +394,7 @@ The paper reports the following: “The expression values for each Somamer were 
 
 # total per sample
 # Sum the values in each row of your df. The NA values are ignored. Sample total is a vector with a length equal to the number of samples, where each value is the total protein intensity per sample.
-sample_totals <- rowSums(proteins_df [2:7241], na.rm=TRUE)
+sample_totals <- rowSums(combined_dataset_protein [2:7241], na.rm=TRUE)
 
 # plot
 qplot(1:length(sample_totals), sample_totals) +
@@ -411,7 +411,7 @@ The LRRC15 (-moet dit specifiek erbij?) protein values are not normally distribu
 histogram BEFORE transformation
 ```{r}
 
-ggplot(proteins_df, aes(x = proteins_df$LRRC15)) +
+ggplot(combined_dataset_protein, aes(x = combined_dataset_protein$LRRC15)) +
   geom_histogram(bins = 100, fill = "steelblue", color = "black", aplha = 0.7) +
   labs(title = "Histogram of LRRC15",
        x = "LRRC15 Protein concentration", y = "Frequency") +
@@ -421,7 +421,7 @@ ggplot(proteins_df, aes(x = proteins_df$LRRC15)) +
 
 histogram AFTER transformation
 ```{r}
-ggplot(proteins_df, aes(x = log(proteins_df$LRRC15))) +
+ggplot(combined_dataset_protein, aes(x = log(combined_dataset_protein$LRRC15))) +
   geom_histogram(bins = 100, fill = "steelblue", color = "black", aplha = 0.7) +
   labs(title = "Histogram of LRRC15",
        x = "LRRC15 Protein concentration", y = "Frequency") +
