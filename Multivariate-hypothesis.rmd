@@ -3,24 +3,15 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-multivariate hypothese = Je onderzoekt of meerdere variabelen samen verschillen tussen groepen of een uitkomst kunnen verklaren
-                        bv een combinatie van eiwitten verschilt tussen 2 of meer klinische groepen zoals: patienten met vs zonder                              corona, vroeg vs laat tijdstip, verschillende ziektegradaties,...
-    
-Klinische variabele= Dit is een klinische factor dat je wil verklaren bv corona aanwezig/ ernstscore / ...
+#STEP 1: Choose the variables
 
-
-#STEP 1: kies de variabelen: Op basis van het onderzoek
-
-We kunnen  kijken naar de rol van histon-gerelateerde eiwitten en pathways want er wordt vermeld in het artikel dat deze sterk geassocieerd zijn met ernst, maar ze doen er geen tests op. 
-
-Je wilt dan weten of: 
-    1) ernst een invloed heeft op COL11A2
-    2) geslacht een invloed heeft op COL11A2
-    3) er een interactie is tussen ernst en geslacht
+We want to know if: 
+    1) severity has an influence on COL11A2 
+    2) sex has an influence on COL11A2 
+    3) there is an interaction between sex and severity
 
 Why COL11A2?
 This protein was selected because it was mentioned in the article. This collagen protein is part of the down-regulated pathways “Integrin cell surface interactions” and “Collagen biosynthesis and modifying enzymes,” both of which include multiple collagen proteins. 
-
 
 Hypothesis: Sex and the severity of Covid-19 have an effect on the expression of COL11A2.
 
