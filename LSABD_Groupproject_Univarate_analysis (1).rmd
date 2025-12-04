@@ -1,0 +1,114 @@
+---
+title: "LSABD_Groupproject_univarate_analysis"
+output: html_document
+date: "2025-11-26"
+---
+
+```{r}
+# import libraries
+library(tidyverse)
+library(ComplexHeatmap)
+library(stats)
+
+# Import data sets
+combined_dataset <- read.csv("combined_dataset.csv")
+features_somameres <- read.csv("feature_meta.csv")
+
+# Heads of both combined_datasets
+head(combined_dataset)
+head(features_somameres)
+
+# Split the combined_dataset in protein expression levels and meta data
+combined_dataset_protein <-combined_dataset[,1:7241]
+combined_dataset_features <-combined_dataset[,7242:7258]
+
+# Columns: sex, ethnicity, ... converted to factors
+combined_dataset_features$sex <- as.factor(combined_dataset_features$sex)
+combined_dataset_features$ethnicity <- as.factor(combined_dataset_features$ethnicity)
+combined_dataset_features$ihd <- as.factor(combined_dataset_features$ihd)
+combined_dataset_features$previous_vte <- as.factor(combined_dataset_features$previous_vte)
+combined_dataset_features$copd <- as.factor(combined_dataset_features$copd)
+combined_dataset_features$diabetes <- as.factor(combined_dataset_features$diabetes)
+combined_dataset_features$smoking <- as.factor(combined_dataset_features$smoking)
+combined_dataset_features$cause_eskd <- as.factor(combined_dataset_features$cause_eskd)
+combined_dataset_features$WHO_severity <- as.factor(combined_dataset_features$WHO_severity)
+combined_dataset_features$WHO_temp_severity <- as.factor(combined_dataset_features$WHO_temp_severity)
+combined_dataset_features$fatal_disease <- as.factor(combined_dataset_features$fatal_disease)
+combined_dataset_features$case_control <- as.factor(combined_dataset_features$case_control)
+combined_dataset_features$radiology_evidence_covid <- as.factor(combined_dataset_features$radiology_evidence_covid)
+str(combined_dataset_features)
+```
+```{r}
+# Visualisation from the distribution of WHO_temp_severety
+combined_dataset_features %>% 
+  ggplot(aes(x = WHO_temp_severity)) + 
+  geom_bar(fill = "steelblue") + 
+  theme_minimal() +
+  labs(title = "Distribution of WHO_temp_severity", x = "WHO_temp_severity", y = "Count")
+```
+```{r}
+# Variances of proteins
+cv <- function (x) {sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE) * 100}
+
+variatie_per_eiwit <- sapply(combined_dataset_protein[,2:7241], cv)
+
+cv_filtered <- variatie_per_eiwit[variatie_per_eiwit > 15 & variatie_per_eiwit < 30]
+top_cv <- sort(cv_filtered, decreasing = TRUE) [1:20]
+top_candidates <- data.frame (protein = names (top_cv), CV_percent = round(top_cv, 2))
+
+# Bekijk het resultaat
+print(top_candidates)
+
+combined_dataset_protein$zg16
+```
+
+```{r}
+# Visualise abundance of TIMM13 per stage of severity (WHO_temp_severity) by a boxplot
+stage <- combined_dataset_features$WHO_temp_severity
+
+ggplot (mapping=aes (x=stage, y=combined_dataset_protein$TIMM13)) +
+  geom_boxplot () +
+  geom_point ( position = "jitter", color="grey")
+```
+# Hypotheses
+Null hypothesis (H₀): TIMM13 expression levels are the same across all severity groups.
+Alternative hypothesis (H₁): At least one severity group has different TIMM13 expression levels.
+
+# anova test-> statistical test to check that the protein expression levels in different stages of severity is significantly different ? 
+Dependent variable (DV): Protein expression levels of TIMM13 (continuous data).
+Independent variable (IV): Severity groups (categorical, e.g., mild, moderate, severe). -> uitleg wrm 
+
+```{r}
+# For an ANOVA test, we need to check the normaility within the group
+
+combined_dataset %>%
+  ggplot(aes(sample = TIMM13)) +
+  geom_qq() + 
+  geom_qq_line() +
+  facet_wrap(~WHO_temp_severity)
+
+```
+Interpretatie normaliteit:
+QQplots van data met outliers inbegrepen -> Data voor elke groep met uitzondering van "Negative" zijn normaal verdeeld. Vermoedelijk als de outliers verwijderd worden zal dit opgelost zijn.
+
+# ANOVA test
+```{r}
+# One way ANOVA
+anova_TIMM13 <- aov(TIMM13~WHO_temp_severity, data = combined_dataset)
+summary(anova_TIMM13)
+```
+Intrpretation ANOVA:
+significant difference -> p-value < 0,05 (0.0167)
+
+We will perform a post-hoc analysis to identify which groups differe from each other
+
+```{r}
+posthoc_TIMM13 <- TukeyHSD(anova_TIMM13, conf.level = 0.95)
+posthoc_TIMM13
+```
+
+```{r}
+plot(posthoc_TIMM13, las = 1)
+```
+Interpretatie post-hoc analyse:
+er zijn geen significante verschillen tussen de groepen
