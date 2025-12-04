@@ -1,0 +1,206 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+multivariate hypothese = Je onderzoekt of meerdere variabelen samen verschillen tussen groepen of een uitkomst kunnen verklaren
+                        bv een combinatie van eiwitten verschilt tussen 2 of meer klinische groepen zoals: patienten met vs zonder                              corona, vroeg vs laat tijdstip, verschillende ziektegradaties,...
+    
+Klinische variabele= Dit is een klinische factor dat je wil verklaren bv corona aanwezig/ ernstscore / ...
+
+
+#STEP 1: kies de variabelen: Op basis van het onderzoek
+
+We kunnen  kijken naar de rol van histon-gerelateerde eiwitten en pathways want er wordt vermeld in het artikel dat deze sterk geassocieerd zijn met ernst, maar ze doen er geen tests op. 
+
+Je wilt dan weten of: 
+    1) ernst een invloed heeft op COL11A2
+    2) geslacht een invloed heeft op COL11A2
+    3) er een interactie is tussen ernst en geslacht
+
+Why COL11A2?
+This protein was selected because it was mentioned in the article. This collagen protein is part of the down-regulated pathways “Integrin cell surface interactions” and “Collagen biosynthesis and modifying enzymes,” both of which include multiple collagen proteins. 
+
+
+Hypothesis: Sex and the severity of Covid-19 have an effect on the expression of COL11A2.
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(ggpubr)
+library(tidyverse)
+
+```
+
+#STEP 2: dataset maken
+```{r}
+data_multivariate <- data.frame( COL11A2 = proteins_scaled$COL11A2, severity = feature_df$WHO_temp_severity, sex = feature_df$sex)
+```
+
+
+#STEP 3: Outliers checken
+```{r}
+protein <- combined_dataset$COL11A2
+
+Q1 <- quantile(protein, 0.25, na.rm = TRUE)
+Q3 <- quantile(protein, 0.75, na.rm = TRUE)
+IQR_value <- IQR(protein, na.rm = TRUE)
+
+lower_bound <- Q1 - 1.5 * IQR_value
+upper_bound <- Q3 + 1.5 * IQR_value
+
+outliers <- protein[protein < lower_bound | protein > upper_bound]
+
+outliers
+```
+```{r}
+
+boxplot(protein, main="Boxplot COL11A2", ylab="Expression")
+
+```
+
+
+#Step 3: Assumptions checken
+
+**Normalization of protein H2BU1**
+```{r}
+ggqqplot(proteins_scaled$COL11A2) +
+  ylim(0,5)+
+  xlim(0,3)
+```
+INTERPRETATION:
+Niet volledig normaal verdeeld door outliers, dus we checken dit per karakteristiek van de patiënt
+
+
+Normalization
+```{r}
+data_multivariate %>%
+  ggplot(aes(sample = COL11A2)) +
+  geom_qq() + 
+  geom_qq_line() +
+  facet_wrap(~severity)
+```
+```{r}
+data_multivariate %>%
+  ggplot(aes(sample = COL11A2)) +
+  geom_qq() + 
+  geom_qq_line() +
+  facet_wrap(~sex)
+```
+
+**Boxplots**
+
+```{r}
+library(ggplot2)
+
+ggplot(data_multivariate, aes(x = severity, y = COL11A2, fill = sex)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "The effect of sex and Covid-19 severity in COL11A2", x = "WHO temp severity", y = "Standardized COL11A2 expression")
+
+```
+
+
+
+# STEP 2: The two-sample Anova test
+
+```{r}
+anova_model <- aov( COL11A2 ~ severity + sex + severity * sex , data = data_multivariate)
+summary(anova_model)
+```
+INTERPRETATION:
+- The difference between severity groups is significant (p < 0,05) 
+  = The covid 19 severity has a significant effect on the expression of COL11A2
+
+- The difference between men and female is not significant (p > 0,05)
+  = Sex does not have a significant effect on the expression of COL11A2
+
+- The interaction between sex and severity groups is not significant (p > 0,05)
+  = The covid 19 severity is +/- the same in male and female
+
+
+
+
+#STEP 3: Visualize
+
+We know that Covid-19 severity has a significant effect on the expression of COL11A2 It is important that we do a Post-hoc test to find out for which groups the expression is significantily different.
+
+```{r}
+TukeyHSD(anova_model, "Severity")
+
+```
+
+```{r}
+ggplot(data_multivariate, aes(x = severity, y = COL11A2)) +
+  geom_boxplot(fill = "darkseagreen") +
+  theme_minimal() +
+  labs(
+    title = "COL11A2 expression per COVID-19 sevirity level",
+    y = "Standardized COL11A2 expression",
+    x = "WHO temp severity"
+  )
+
+```
+
+CONCLUSION: 
+
+COVID-19 severity has a significant impact on COL11A2 expression. In fact, COL11A2 appears to serve as a marker of disease severity and is downregulated as COVID-19 becomes more severe.
+In contrast, sex does not significantly influence COL11A2 expression, and COVID-19 severity is approximately the same in both males and females.
+
+
+
+#STEP 4: linear regression
+
+
+**with interactions**
+```{r}
+lm_COL11A2 <- lm(COL11A2 ~ sex + severity + sex*severity, data= data_multivariate)
+summary(lm_COL11A2)
+```
+INTERPRETATION:
+R2 = 0,3759 means that our model will explain 37,6% of the variation in COL11A2 expression. The adjusted R2 is comparable, so this means that there is no overfitting. The p-value shows that the total model is significant. 
+The effect of sex: There is no significant difference in COL11A2 expression between male and female
+the effect of severity:  mild, moderate and negative is significant. There is no significant difference in COL11A2 expression in the severe group.
+
+
+
+**effect size**
+
+```{r}
+install.packages("effectsize")
+library(effectsize)
+
+eta_squared(lm_COL11A2)
+```
+INTERPRETATION:
+- effect of sex: very small effect -> sex has no meaningful influence on COL11A2
+- effect of severity: large effect -> severity is a strong  nd important predictor of COL11A2 expression
+- interaction between sex and severity: very small effect-> the relationship between severity and COL11A2 expression does not meaningfully differ between male and female
+
+
+
+
+```{r}
+data_multivariate$severity <- factor(data_multivariate$severity, ordered = TRUE)
+```
+
+
+
+**Check assumptions**
+
+```{r}
+plot(linear_regression)
+```
+INTERPRETATION:
+- linearity: Good because: 
+                      1) There is almost no curvature in the red line which means that there is no systematic pattern. 
+                      2) The residuals are randomly scattered around zero (no under or over prediction)
+                      3) If the variance of the residuals increased or decreased with fitted values, we would see a funnel or cone.                           This is not present
+                      4) there are a few outliers but this will not form a problem
+- Normality: looks good
+- homocedacity: The red line is mostly flat with only slight deviations. The spread of residuals doesn’t show a strong funnel or curvature. This suggests that your model likely meets the equal variance assumption.
+- Outliers: a few present
+
+
+
+
