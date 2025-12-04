@@ -23,20 +23,15 @@ combined_dataset_protein <-combined_dataset[,1:7241]
 combined_dataset_features <-combined_dataset[,7242:7258]
 
 # Columns: sex, ethnicity, ... converted to factors
-combined_dataset_features$sex <- as.factor(combined_dataset_features$sex)
-combined_dataset_features$ethnicity <- as.factor(combined_dataset_features$ethnicity)
-combined_dataset_features$ihd <- as.factor(combined_dataset_features$ihd)
-combined_dataset_features$previous_vte <- as.factor(combined_dataset_features$previous_vte)
-combined_dataset_features$copd <- as.factor(combined_dataset_features$copd)
-combined_dataset_features$diabetes <- as.factor(combined_dataset_features$diabetes)
-combined_dataset_features$smoking <- as.factor(combined_dataset_features$smoking)
-combined_dataset_features$cause_eskd <- as.factor(combined_dataset_features$cause_eskd)
-combined_dataset_features$WHO_severity <- as.factor(combined_dataset_features$WHO_severity)
-combined_dataset_features$WHO_temp_severity <- as.factor(combined_dataset_features$WHO_temp_severity)
-combined_dataset_features$fatal_disease <- as.factor(combined_dataset_features$fatal_disease)
-combined_dataset_features$case_control <- as.factor(combined_dataset_features$case_control)
-combined_dataset_features$radiology_evidence_covid <- as.factor(combined_dataset_features$radiology_evidence_covid)
+clinical_data <- c("ethnicity", "sex", "ihd", "previous_vte","copd", "diabetes", "smoking", "cause_eskd",
+  "WHO_severity", "WHO_temp_severity", "case_control","radiology_evidence_covid", "fatal_disease")
+combined_dataset_features[clinical_data] <- lapply((combined_dataset_features[clinical_data]),factor)
 str(combined_dataset_features)
+
+# Log transforming and scale data 
+proteins_log <- log(combined_dataset_protein[,2:7241])
+protein_scaled <- as.data.frame(scale(proteins_log))
+proteins_scaled_ids <- protein_scaled %>% mutate(X = combined_dataset_protein$X) %>% arrange()
 ```
 ```{r}
 # Visualisation from the distribution of WHO_temp_severety
@@ -47,14 +42,18 @@ combined_dataset_features %>%
   labs(title = "Distribution of WHO_temp_severity", x = "WHO_temp_severity", y = "Count")
 ```
 ```{r}
+# Boxplot from a selection of proteins
+protein_scaled_ids %>% select(X,[,1:10]) %>%pivot_longer(names_to = "prots", values_to = "abundances")
+  ggplot()+
+  geom_boxplot()
+
 # Variances of proteins
 cv <- function (x) {sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE) * 100}
 
-variatie_per_eiwit <- sapply(combined_dataset_protein[,2:7241], cv)
+variatie_per_eiwit <- sapply(protein_scaled, cv)
 
-cv_filtered <- variatie_per_eiwit[variatie_per_eiwit > 15 & variatie_per_eiwit < 30]
-top_cv <- sort(cv_filtered, decreasing = TRUE) [1:20]
-top_candidates <- data.frame (protein = names (top_cv), CV_percent = round(top_cv, 2))
+top_cv <- sort(variatie_per_eiwit, decreasing = TRUE)
+top_candidates <- data.frame(protein = names (top_cv), CV_percent = round(top_cv, 2))
 
 # Bekijk het resultaat
 print(top_candidates)
