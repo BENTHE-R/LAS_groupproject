@@ -75,7 +75,7 @@ head(features_somameres)
 the use of dim() is used to return the number of rows and columns, providing an overview of dataset size.
 ```{r}
 dim(combined_dataset) 
-dim(features_meta)
+dim(features_somameres)
 ```
 
 splitting the 'combined_dataset' to seperate protein expression values from features  
@@ -105,19 +105,23 @@ skim
 
 str() is used to display the data types. 
 ```{r}
-str(features_somameres)
+str(features_somamere
 str(combined_dataset_features)
 ```
 
 This code was applied to convert categorical variables from character to factor type (excluding protein_id), ensuring that these variables are properly recognized as discrete categories in statistical analyses.
 ```{r}
-clinical_data <- c("ethnicity", "sex", "ihd", "previous_vte","copd", "diabetes", "smoking", "cause_eskd",
-  "WHO_severity", "WHO_temp_severity", "case_control","radiology_evidence_covid", "fatal_disease")
+clinical_data <- c("ethnicity", "sex", "ihd", "previous_vte","copd", "diabetes", "smoking", "cause_eskd", "WHO_severity", "case_control","radiology_evidence_covid", "fatal_disease")
 combined_dataset_features[clinical_data] <- lapply((combined_dataset_features[clinical_data]),factor)
+
+# Convert the WHO_temp_severity column to a ranked column NEGATIVE = 1, mild = 2, moderate = 3, severe = 4, critical = 5
+combined_dataset_features$WHO_temp_severity <- factor(
+  combined_dataset_features$WHO_temp_severity,
+  levels = c("NEGATIVE", "mild", "moderate", "severe", "critical"), ordered = TRUE)
 
 # checking if data types changed correctly
 str(combined_dataset_features)
-levels(combined_dataset_features$copd)
+levels(combined_dataset_features$WHO_temp_severity)
 ```
 
 duplicated() applied to identify repeated entries within the dataset.
@@ -192,48 +196,20 @@ features_wave1_COVID_negative <- combined_dataset_features %>% filter(case_contr
 #4 Paired samples per individual
 grouping the data by individual to assess how many measurements each patient has
 ```{r}
-
-paired_combined <- combined_dataset %>%
-  group_by(individual_id) 
-
-paired_combined %>% 
-  count(individual_id)
-```
-
-```{r}
-
-paired_combined<- combined_dataset %>%
+# How many samples are teken from each patient
+combined_dataset %>%
   group_by(individual_id) %>%
   summarise(n_samples = n())
 
-
-paired_combined <- paired_combined %>%
-  summarise (
-    n_eq_1 = sum (n_samples ==1),
-    n_gt_1 = sum (n_samples >1)
-  )
-
-paired_combined
-
 ```
 
-#5 missing values 
-checking for missing values in proteins 
-```{r}
-# maak een nieuwe df voor enkel de proteinen -> snap ik niet echt 
-combined_dataset[combined_dataset == "NA"] <- NA 
 
+#5 missing values
 
-#display number of missing values per column
-col_missing <- colSums(is.na(combined_dataset_protein))
-summary(col_missing)
-```
-INTERPRETATION: no missing values found 
-
-checking for missing values in patient characteristics 
+checking for missing values in the combined dataset 
 ```{r}
 # Missing values summary
-missing_summary <- combined_dataset %>%
+missing_summary <- combined_dataset%>%
   summarise(across(everything(), ~ sum(is.na(.)))) %>%
   pivot_longer(cols = everything(), names_to = "Variable", values_to = "Missing_Values") %>%
   mutate(Missing_Percentage = (Missing_Values / nrow(combined_dataset)) * 100) %>%
@@ -315,8 +291,7 @@ pivot_longer_proteins %>%
 
 ```
 INTERPRETATION:
-The histogram and box plot of all protein abundances clearly show a large number of outliers, with a long tail to the right.We will now look for a suitable cutoff value to reduce the number of outliers.
-
+The histogram and box plot of all protein abundances clearly show a large number of outliers, with a long tail to the right. To make this data less squid,we will perform a log transformation
 ```{r}
 # Calculate the median, and the standard deviation for the protein abundances. This will be used to set a cut of value.
 sd_prot_abundances <- sd(pivot_longer_proteins$abundances)
@@ -349,7 +324,7 @@ pivot_longer_proteins_cut_of %>%
 
 #7 filtering
 
-GOAL: You want to remove proteins that almost never differ between individuals/conditions.
+GOAL: remove proteins that almost never differ between individuals/conditions.
 HOW?
 - Filter **features**: Check whether certain features can be removed based on variation.
 - Filter **proteins**: Check again for significant variation (small variation provides little information). First do a global analysis and then per individual.
@@ -372,17 +347,14 @@ Based on this code we notice that previous_vte, copd and smoking have a low vari
 
 #7.2 filtering proteins
 ```{r}
-
-cv <- function(x) {
-  sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE) * 100
-}
-
-variatie_per_eiwit <- sapply(combined_dataset_protein[,2:7241], cv)
-
-# proteins with a percentage lower than 20
-laag_variatie <- variatie_per_eiwit [variatie_per_eiwit < 10]
-laag_variatie
-
+# proteins with a coefficient_of_variance lower than 10%
+low_variance <- combined_dataset_protein %>% 
+  pivot_longer(!X, names_to = "prots", values_to = "abundances") %>%
+  group_by(prots) %>%
+  summarise(coefficient_of_variance = sd(abundances, na.rm = TRUE) / mean(abundances, na.rm = TRUE) * 100) %>%
+  filter(coefficient_of_variance < 10) %>%
+  arrange(coefficient_of_variance)
+low_variance
 ```
 INTERPRETATION:
 The data is analyzed for cases and controls. It's important to note that a person in WAVE 1 could have been considered a control, but later developed COVID-19 and is therefore included as a case in WAVE 2. The filtering was performed per measurement, not per person. We know that this method fails to capture biological differences and differences between cases and controls, and therefore the test is not fully accurate. We choose to work independently of patients, but we recognize that this must be taken into account.
@@ -391,7 +363,6 @@ The data is analyzed for cases and controls. It's important to note that a perso
 The paper reports the following: “The expression values for each Somamer were inverse-rank normalised prior to downstream analyses.” However, it is not specified whether the dataset we received contains the raw expression values or values that have already undergone this normalisation. Therefore, our first step will be to determine whether additional normalisation is required.
 
 ```{r}
-
 # total per sample
 # Sum the values in each row of your df. The NA values are ignored. Sample total is a vector with a length equal to the number of samples, where each value is the total protein intensity per sample.
 sample_totals <- rowSums(combined_dataset_protein [2:7241], na.rm=TRUE)
@@ -432,6 +403,7 @@ Log transformation of all data:
 ```{r}
 # Normalise protein abundance
 proteins_log <- log(combined_dataset_protein[,2:7241])
+
 ```
 
 Visualisation after the log tansformation:
@@ -458,6 +430,47 @@ Heatmap(combined_dataset_protein %>% column_to_rownames("X")  , use_raster = FAL
 
 # heatmap standarsised protein abundances 
 Heatmap(protein_scaled, use_raster = FALSE, show_row_names = FALSE, show_column_names = FALSE)
+
+# heatmap standarsised protein abundances + row annotations on WHO_temp_severity
+annotation_WHO_temp_severity = rowAnnotation(WHO_severity = combined_dataset_features$WHO_temp_severity,
+                                             col = list(WHO_severity = c("NEGATIVE"="#ef476f", "mild"="#ffd166", "moderate"="#06d6a0", "severe"="#118ab2", "critical"="#073b4c" )))
+Heatmap(protein_scaled, name="Scaled protein abundance", use_raster = FALSE, show_row_names = FALSE, show_column_names = FALSE, right_annotation = annotation_WHO_temp_severity)
 ```
 INTERPRETATION:
 hier moet best nog iets staan 
+
+#11 DEA
+Find the protein that is most differentially expressed in the COVID-cases, in comparison with the negative controles. We will visualise this with a vulcano plot
+
+```{r}
+library(edgeR)
+
+# transpose the combined_dataset_protein, this is needed for a DEA.
+n <- combined_dataset_protein$X
+transposed_proteins <- as.data.frame(t(combined_dataset_protein[,-1]))
+colnames(transposed_proteins) <- n
+
+# Make a DEA matrix, and log transform it
+counts_matrix <- as.matrix(transposed_proteins)
+dge <- DGEList(counts = counts_matrix, group = combined_dataset_features$case_control)
+log_voom_matrix <- voom(dge)
+
+# Design and contrast matrix
+design <- model.matrix(~0 + case_control, data=combined_dataset_features)
+
+# Define the contrast
+contrast.matrix_negpos <- makeContrasts(contrast1=case_controlNEGATIVE-case_controlPOSITIVE, levels=design)
+
+
+## Fit model & perform differential expression
+#fitting the expression matrix to linear models
+fit <- lmFit(log_voom_matrix, design)
+#compute contrast
+fit_negpos <- contrasts.fit(fit, contrast.matrix_negpos)
+#Bayes statistic of differential expression
+fit_negpos <- eBayes(fit_negpos)
+
+volcanoplot(fit_negpos, coef=1, highlight = 20, names=rownames(fit_negpos))
+
+```
+
