@@ -27,6 +27,7 @@ library(tidyverse)
 Because WHO_temp_severity and the protein of interest are present in other dataframes, we have to make a new dataframe. In this way we can easily check our hypothesis.
 ```{r}
 data_multivariate <- data.frame( COL11A2 = proteins_scaled$COL11A2, severity = feature_df$WHO_temp_severity, sex = feature_df$sex)
+data_multivariate$severity <- factor(data_multivariate$severity, levels = c("NEGATIVE", "mild", "moderate", "severe", "critical"))
 ```
 
 
@@ -55,14 +56,14 @@ There are outliers present but we will chose to not remove these as we cannot ex
 
 
 
-
 #Step 4: Check normality
 
 **Normalization of protein H2BU1**
 ```{r}
 ggqqplot(proteins_scaled$COL11A2) +
   ylim(0,5)+
-  xlim(0,3)
+  xlim(0,3)+ 
+  labs(title = "Normalization of COL11A2", x= NULL, y=NULL)
 ```
 
 
@@ -73,7 +74,8 @@ data_multivariate %>%
   ggplot(aes(sample = COL11A2)) +
   geom_qq() + 
   geom_qq_line() +
-  facet_wrap(~severity)
+  facet_wrap(~severity) +
+  labs( title= "Normalization of severity" )
 ```
 
 **Normalization of sex**
@@ -82,7 +84,8 @@ data_multivariate %>%
   ggplot(aes(sample = COL11A2)) +
   geom_qq() + 
   geom_qq_line() +
-  facet_wrap(~sex)
+  facet_wrap(~sex)+
+  labs( title= "Normalization of sex" )
 ```
 Interpretation of the normality:
 The normal distribution is not perfect, largely due to the presence of outliers.
@@ -90,10 +93,30 @@ The normal distribution is not perfect, largely due to the presence of outliers.
 
 **Boxplots**
 
+We will generate a boxplot to visualize the distribution of COL11A2 across the different severity levels
+
+```{r}
+ggplot(data_multivariate, aes(x = severity, y = COL11A2, fill= severity)) +
+  geom_boxplot() +
+  theme_minimal()+
+  labs(title = "COL11A2 levels across the different severity groups")
+```
+
+
+
+We also visualize the distribution of COL11A2 in male and female patients
+```{r}
+ggplot(data_multivariate, aes(x = sex, y = COL11A2, fill= sex)) +
+  geom_boxplot() +
+  theme_minimal()+
+  labs (title = "Sex-Based Differences in COL11A2 Expression ")
+
+```
+
+
 ```{r}
 library(ggplot2)
 
-data_multivariate$severity <- factor(data_multivariate$severity, levels = c("NEGATIVE", "mild", "moderate", "severe", "critical"))
 
 ggplot(data_multivariate, aes(x = severity, y = COL11A2, fill = sex)) +
   geom_boxplot() +
@@ -194,6 +217,5 @@ INTERPRETATION:
 - Normality: looks good
 - Homocedacity: The red line is mostly flat with only slight deviations. The spread of residuals doesn’t show a strong funnel or curvature. This suggests that our model likely meets the equal variance assumption.
 - Outliers: a few present
-
 
 
