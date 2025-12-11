@@ -66,7 +66,11 @@ IQR_per_protein[1:10,]
 Based on the IQR we will conclude that MX1 has the highest variable expression among all samples (IQR = 2.103544). This observation is reinforced by a DEA, comparing the covid positives and negatives, the vulcano plot shows MX1 as the most differential expressed protein.
 
 ```{r}
- library(edgeR)
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+#BiocManager::install("edgeR")
+library(edgeR)
 
 # transpose the combined_dataset_protein, this is needed for a DEA.
 n <- combined_dataset_protein$X
@@ -168,4 +172,4 @@ dunn_results_df <- data.frame(comparisons = dunn_results$comparisons,
 dunn_results_df
 ```
 Coclusion:
-A Kruskal-Wallis test reveals a significant differance in MX1 expression among the different covid severity groups (p-value < 2.2e-16).
+A Kruskal-Wallis test reveals a significant difference in MX1 expression among the different covid severity groups (p-value < 2.2e-16).
