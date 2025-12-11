@@ -23,24 +23,25 @@ combined_dataset_protein <-combined_dataset[,1:7241]
 combined_dataset_features <-combined_dataset[,7242:7258]
 
 # Columns: sex, ethnicity, ... converted to factors
-clinical_data <- c("ethnicity", "sex", "ihd", "previous_vte","copd", "diabetes", "smoking", "cause_eskd",
-  "WHO_severity", "WHO_temp_severity", "case_control","radiology_evidence_covid", "fatal_disease")
+clinical_data <- c("ethnicity", "sex", "ihd", "previous_vte","copd", "diabetes", "smoking", "cause_eskd", "WHO_severity", "case_control","radiology_evidence_covid", "fatal_disease")
 combined_dataset_features[clinical_data] <- lapply((combined_dataset_features[clinical_data]),factor)
+
+# Convert the WHO_temp_severity column to a ranked column NEGATIVE = 1, mild = 2, moderate = 3, severe = 4, critical = 5
+combined_dataset_features$WHO_temp_severity <- factor(
+  combined_dataset_features$WHO_temp_severity,
+  levels = c("NEGATIVE", "mild", "moderate", "severe", "critical"), ordered = TRUE)
 str(combined_dataset_features)
 
 # Log transforming and scale data 
 proteins_log <- log(combined_dataset_protein[,2:7241])
 protein_scaled <- as.data.frame(scale(proteins_log))
 proteins_scaled_ids <- protein_scaled %>% mutate(X = combined_dataset_protein$X) %>% relocate(X, .before = 1)
+proteins_log_ids <- proteins_log %>% mutate(X = combined_dataset_protein$X) %>% relocate(X, .before = 1)
 
 # Boxplot from a selection of proteins after scaling
 proteins_scaled_ids[,1:10] %>% pivot_longer(!X, names_to = "prots", values_to = "abundances") %>%
   ggplot(aes(x= prots, y = abundances))+
   geom_boxplot()
-
-proteins_scaled_ids %>% pivot_longer(!X, names_to = "prots", values_to = "abundances") %>%
-  group_by(prots) %>%
-  summarise(sd(abundances))
 ```
 ```{r}
 # Visualisation from the distribution of WHO_temp_severety
@@ -61,56 +62,101 @@ IQR_per_protein <- proteins_scaled_ids %>% pivot_longer(!X, names_to = "prots", 
 
 # The top 10 proteins with the highest inter queartile range
 IQR_per_protein[1:10,]
-
 ```
-Based on the IQR we will conclude that MX1 has the highest variable expression among all samples.
+Based on the IQR we will conclude that MX1 has the highest variable expression among all samples (IQR = 2.103544). This observation is reinforced by a DEA, comparing the covid positives and negatives, the vulcano plot shows MX1 as the most differential expressed protein.
+
 ```{r}
-# Make a dataframe with only the MX1 expression pre sample and the coresponding WHO_temp_severety
-df_univariate_analysis <- proteins_scaled_ids %>% select(X, MX1) %>% mutate(WHO_temp_severity = combined_dataset_features$WHO_temp_severity)
+ library(edgeR)
 
-# Visualise abundance of MX1 per stage of severity (WHO_temp_severity) by a boxplot
-df_univariate_analysis %>% ggplot (mapping = aes (x= WHO_temp_severity, y= MX1)) +
-  geom_boxplot () +
-  geom_point ( position = "jitter", color="grey")
+# transpose the combined_dataset_protein, this is needed for a DEA.
+n <- combined_dataset_protein$X
+transposed_proteins <- as.data.frame(t(combined_dataset_protein[,-1]))
+colnames(transposed_proteins) <- n
+
+# Make a DEA matrix, and log transform it
+counts_matrix <- as.matrix(transposed_proteins)
+dge <- DGEList(counts = counts_matrix, group = combined_dataset_features$case_control)
+log_voom_matrix <- voom(dge)
+
+# Design and contrast matrix
+design <- model.matrix(~0 + case_control, data=combined_dataset_features)
+
+# Define the contrast
+contrast.matrix_negpos <- makeContrasts(contrast1=case_controlNEGATIVE-case_controlPOSITIVE, levels=design)
+
+
+## Fit model & perform differential expression
+#fitting the expression matrix to linear models
+fit <- lmFit(log_voom_matrix, design)
+#compute contrast
+fit_negpos <- contrasts.fit(fit, contrast.matrix_negpos)
+#Bayes statistic of differential expression
+fit_negpos <- eBayes(fit_negpos)
+
+volcanoplot(fit_negpos, coef=1, highlight = 20, names=rownames(fit_negpos))
+
 ```
+
 # Hypotheses
-Null hypothesis (H₀): MX1 expression levels are the same across all severity groups.
-Alternative hypothesis (H₁): At least one severity group has different MX1 expression levels.
+Null hypothesis (H₀): There is no difference in MX1 expression levels across all 5 severity groups.
+Alternative hypothesis (H₁): There is a difference in MX1 expression levels between the 5 severity groups.
 
 # anova test-> statistical test to check that the protein expression levels in different stages of severity is significantly different ? 
 Dependent variable (DV): Protein expression levels of MX1 (continuous data).
 Independent variable (IV): Severity groups (categorical, e.g., mild, moderate, severe). -> uitleg wrm 
 
-```{r}
-# For an ANOVA test, we need to check the normaility within the group
-df_univariate_analysis %>%
-  ggplot(aes(sample = MX1) +
-  geom_qq() + 
-  geom_qq_line() 
-  #facet_wrap(~WHO_temp_severity)
-
-```
-Interpretatie normaliteit:
-QQplots van data met outliers inbegrepen -> Data voor elke groep met uitzondering van "Negative" zijn normaal verdeeld. Vermoedelijk als de outliers verwijderd worden zal dit opgelost zijn.
-
-# ANOVA test
-```{r}
-# One way ANOVA
-anova_MX1 <- aov(MX1~WHO_temp_severity, data = df_univariate_analysis)
-summary(anova_MX1)
-```
-Intrpretation ANOVA:
-significant difference -> p-value < 0,05 (0.0167)
-
-We will perform a post-hoc analysis to identify which groups differe from each other
+In order to perform an ANOVA test, we need to check the assumptions for this test.
+1. Normality of the protein expression
+2. Homogeneity of variance between groups
+3. Independence of the groups
 
 ```{r}
-posthoc_MX1 <- TukeyHSD(anova_MX1, conf.level = 0.95)
-posthoc_MX1
+# Make a dataframe with only the MX1 expression pre sample and the coresponding WHO_temp_severety
+df_univariate_analysis_scaled <- proteins_scaled_ids %>% select(X, MX1) %>% mutate(WHO_temp_severity = combined_dataset_features$WHO_temp_severity)
+df_univariate_analysis_log <- proteins_log_ids%>% select(X, MX1) %>% mutate(WHO_temp_severity = combined_dataset_features$WHO_temp_severity)
+
+# 1.1 normaility within the group
+
+df_univariate_analysis_scaled %>% ggplot(aes(sample = MX1)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "QQ-Plot all severity groups")
+
+df_univariate_analysis_scaled %>% ggplot(aes(sample = MX1)) +
+  stat_qq() +
+  stat_qq_line()+
+  facet_wrap(~WHO_temp_severity)+
+  labs(title = "Individual QQ-Plots per severity group")
+
+# 2 Homogeneity of variance between groups in standardised data
+df_univariate_analysis_scaled %>% ggplot(mapping = aes (x= WHO_temp_severity, y= MX1)) +
+  geom_boxplot () +
+  geom_point ( position = "jitter", color="grey")+
+  labs(title = "Boxplots per severity group")
 ```
+Evaluation assumptions:
+1. Normality of the protein expression
+    This assumption is not satisfied, as can be seen in the qqplot.  
+2. Homogeneity of variance between groups
+    This assumption is not satisfied, the variance in the negative group is drastically lower than in other groups.
+3. Independence of the groups
+    For the sake of the exercise we will assume the samples are independent, so the goups are independent
+This means, we can not perform an ANOVA test to evaluate the difference in MX1 expression in the different groups.
+
+Therefore we will perform a Kruskal-Wallis test, the non parametrical counterpart of the ANOVA. This test does not assume normality and homogeneity of variance. The hypothesis stay the same.
+Null hypothesis (H₀): There is no difference in MX1 expression levels across all 5 severity groups.
+Alternative hypothesis (H₁): There is a difference in MX1 expression levels between the 5 severity groups.
+
+
 
 ```{r}
-plot(posthoc_MX1, las = 1)
+kw_results <- kruskal.test(df_univariate_analysis_scaled, MX1~WHO_temp_severity)
+
+#install.packages("dunn.test")
+library(dunn.test)
+
+attach(df_univariate_analysis_scaled)
+dunn_results <- dunn.test(MX1, WHO_temp_severity, method =  "bonferroni")
+
 ```
-Interpretatie post-hoc analyse:
-er zijn geen significante verschillen tussen de groepen
+Coclusion
