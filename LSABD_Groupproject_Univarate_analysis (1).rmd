@@ -129,9 +129,11 @@ df_univariate_analysis_scaled %>% ggplot(aes(sample = MX1)) +
   labs(title = "Individual QQ-Plots per severity group")
 
 # 2 Homogeneity of variance between groups in standardised data
-df_univariate_analysis_scaled %>% ggplot(mapping = aes (x= WHO_temp_severity, y= MX1)) +
-  geom_boxplot () +
-  geom_point ( position = "jitter", color="grey")+
+df_univariate_analysis_scaled %>% ggplot(mapping = aes (x= WHO_temp_severity, y= MX1, fill = WHO_temp_severity)) +
+  geom_boxplot (outliers = FALSE) +
+  geom_jitter (color="black", width = 0.15) +
+  scale_fill_brewer(palette = "Set2") +
+  theme_minimal() +
   labs(title = "Boxplots per severity group")
 ```
 Evaluation assumptions:
@@ -143,7 +145,8 @@ Evaluation assumptions:
     For the sake of the exercise we will assume the samples are independent, so the goups are independent
 This means, we can not perform an ANOVA test to evaluate the difference in MX1 expression in the different groups.
 
-Therefore we will perform a Kruskal-Wallis test, the non parametrical counterpart of the ANOVA. This test does not assume normality and homogeneity of variance. The hypothesis stay the same.
+Therefore we will perform a Kruskal-Wallis test, the non parametrical counterpart of the ANOVA. This test does not assume normality and homogeneity of variance. 
+The hypothesis stay the same.
 Null hypothesis (H₀): There is no difference in MX1 expression levels across all 5 severity groups.
 Alternative hypothesis (H₁): There is a difference in MX1 expression levels between the 5 severity groups.
 
@@ -151,12 +154,18 @@ Alternative hypothesis (H₁): There is a difference in MX1 expression levels be
 
 ```{r}
 kw_results <- kruskal.test(df_univariate_analysis_scaled, MX1~WHO_temp_severity)
-
+kw_results
 #install.packages("dunn.test")
 library(dunn.test)
 
 attach(df_univariate_analysis_scaled)
 dunn_results <- dunn.test(MX1, WHO_temp_severity, method =  "bonferroni")
 
+dunn_results_df <- data.frame(comparisons = dunn_results$comparisons, 
+           p_value = dunn_results$P.adjusted,
+           z_value = dunn_results$Z) %>%
+  arrange(comparisons)
+dunn_results_df
 ```
-Coclusion
+Coclusion:
+A Kruskal-Wallis test reveals a significant differance in MX1 expression among the different covid severity groups (p-value < 2.2e-16).
