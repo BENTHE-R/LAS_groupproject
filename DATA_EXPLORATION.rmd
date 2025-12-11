@@ -105,7 +105,7 @@ skim
 
 str() is used to display the data types. 
 ```{r}
-str(features_somamere
+str(features_somameres)
 str(combined_dataset_features)
 ```
 
@@ -265,7 +265,7 @@ outlier_list <- sapply(combined_dataset_protein[,2:7241], function(x) {
 
 # Toont aantal outliers per proteïne
 outlier_list <- outlier_list[outlier_list > 0]
-outlier_list
+#outlier_list
 ```
 
 senne: 
@@ -437,7 +437,7 @@ annotation_WHO_temp_severity = rowAnnotation(WHO_severity = combined_dataset_fea
 Heatmap(protein_scaled, name="Scaled protein abundance", use_raster = FALSE, show_row_names = FALSE, show_column_names = FALSE, right_annotation = annotation_WHO_temp_severity)
 ```
 INTERPRETATION:
-hier moet best nog iets staan 
+The heatmap reveals extensive heterogeneity in plasma protein expression across samples, with clear clusters of proteins showing coordinated up- or down-regulation. Notably, the NEGATIVE severity group occupies a distinct region of the expression space, characterized predominantly by lower scaled protein abundance compared to COVID-19–positive samples. In contrast, mild to critical cases display progressively stronger deviations from this baseline, with several protein modules exhibiting severity-related gradients. These patterns indicate that COVID-19 infection—and particularly increasing clinical severity—is associated with broad, systematic alterations in the plasma proteome.
 
 #11 DEA
 Find the protein that is most differentially expressed in the COVID-cases, in comparison with the negative controles. We will visualise this with a vulcano plot
