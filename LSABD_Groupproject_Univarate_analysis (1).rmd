@@ -61,14 +61,12 @@ IQR_per_protein <- proteins_scaled_ids %>% pivot_longer(!X, names_to = "prots", 
   arrange(desc(IQR))
 
 # The top 10 proteins with the highest inter queartile range
-IQR_per_protein[1:10,]
+IQR_per_protein[1:5,]
 ```
 Based on the IQR we will conclude that MX1 has the highest variable expression among all samples (IQR = 2.103544). This observation is reinforced by a DEA, comparing the covid positives and negatives, the vulcano plot shows MX1 as the most differential expressed protein.
 
 ```{r}
-#if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-
+#install.packages("BiocManager")
 #BiocManager::install("edgeR")
 library(edgeR)
 
@@ -170,6 +168,85 @@ dunn_results_df <- data.frame(comparisons = dunn_results$comparisons,
            z_value = dunn_results$Z) %>%
   arrange(comparisons)
 dunn_results_df
+```
+
+```{r}
+data <- df_univariate_analysis_scaled %>% select(WHO_temp_severity, MX1)
+
+# Function to calculate confidence interval for difference in means
+calculate_ci <- function(data, group1, group2, conf_level = 0.95) {
+  x1 <- data[data$WHO_temp_severity == group1, "MX1"]
+  x2 <- data[data$WHO_temp_severity == group2, "MX1"]
+
+  n1 <- length(x1)
+  n2 <- length(x2)
+
+  mean1 <- mean(x1)
+  mean2 <- mean(x2)
+  
+  mean_diff <- mean1 - mean2
+
+  sd1 <- sd(x1)
+  sd2 <- sd(x2)
+  
+  var1 <- var(x1)
+  var2 <- var(x2)
+
+  # Pooled variance
+  sp2 <- ((n1 - 1) * var1 + (n2 - 1) * var2) / (n1 + n2 - 2)
+
+  # t-critical value
+  t_critical <- qt(conf_level, n1 + n2 - 2)
+
+  # Standard error
+  se <- sqrt(sp2 * (1/n1 + 1/n2))
+  #se <- sqrt(sd1/n1 + sd2/n2)
+
+  t_se <- t_critical * se
+  
+  # Confidence interval
+  lwr <- mean_diff -  t_se
+  upr <- mean_diff +  t_se
+  
+  return(c(mean_diff, t_se))
+}
+
+# List of groups
+groups <- c("NEGATIVE", "mild", "moderate", "severe", "critical")
+
+# Generate all possible pairs of groups
+pairs <- t(combn(groups, 2))
+
+# Calculate confidence intervals for each pair
+confidence_intervals <- apply(pairs, 1, function(pair) {
+  ci <- calculate_ci(data, pair[1], pair[2])
+  return(c(pair[1], pair[2], ci))
+})
+
+# Convert to a data frame for readability
+confidence_intervals_df <- data.frame(matrix(unlist(confidence_intervals), nrow = nrow(pairs), byrow = TRUE),
+                                       stringsAsFactors = FALSE)
+
+colnames(confidence_intervals_df) <- c("Group1", "Group2", "mean_diff", "t_se")
+
+confidence_intervals_df <- confidence_intervals_df %>% 
+  mutate(mean_diff = as.double(mean_diff), t_se = as.double(t_se))%>% 
+  mutate(comparison = paste(Group1, Group2, sep = ' - '), lwr = mean_diff - t_se, upr = mean_diff + t_se) %>% 
+  relocate(comparison, .before = 3 )
+
+# View the results
+print(confidence_intervals_df)
+
+# Visualise CIs
+ggplot(confidence_intervals_df, aes(x = comparison, y = mean_diff)) +
+  geom_hline(yintercept=0, linetype="dashed", color = "red") +
+  geom_point() +
+  geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.2) +
+  labs(title = "Confidence Intervals for Mean Differences",
+       x = "Comparison",
+       y = "Mean Difference") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 Coclusion:
 A Kruskal-Wallis test reveals a significant difference in MX1 expression among the different covid severity groups (p-value < 2.2e-16).

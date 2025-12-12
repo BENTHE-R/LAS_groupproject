@@ -25,6 +25,17 @@ library(tidyverse)
 #STEP 2: Make the dataset
 Because WHO_temp_severity and the protein of interest are present in other dataframes, we have to make a new dataframe. In this way we can easily check our hypothesis.
 ```{r}
+# Import whole dataset
+combined_dataset <- read.csv("combined_dataset.csv")
+
+# Split dataset in subsets
+combined_dataset_protein <-combined_dataset[,1:7241]
+proteins_log <- log(combined_dataset_protein[,2:7241])
+proteins_scaled <- as.data.frame(scale(proteins_log))
+
+feature_df <-combined_dataset[,7242:7258]
+
+
 data_multivariate <- data.frame( COL11A2 = proteins_scaled$COL11A2, severity = feature_df$WHO_temp_severity, sex = feature_df$sex)
 data_multivariate$severity <- factor(data_multivariate$severity, levels = c("NEGATIVE", "mild", "moderate", "severe", "critical"))
 ```
