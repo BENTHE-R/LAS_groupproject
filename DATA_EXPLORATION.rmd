@@ -30,7 +30,7 @@ library(circlize)
 
 ## Background information: Abstract article
 
-Patients with end-stage kidney disease (ESKD) are at high risk of severe COVID-19. Here, we perform longitudinal blood sampling of ESKD haemodialysis patients with COVID-19, collecting samples pre-infection, serially duringinfection, and after clinical recovery. Using plasma proteomics, and RNA-sequencing and ow cytometry of immune cells, we identify transcriptomic and proteomic signatures of COVID-19 severity, and nd distinct temporal molecular pro les in patients with severe disease. Supervised learning reveals that the plasma proteome is a superior indicator of clinical severity than the PBMC transcriptome. We show that a decreasing trajectory of plasma LRRC15 (Leucine-rich repeat containing 15), a proposed co-receptor for SARS-CoV-2, is associated with a more severe clinical course. We observe that two months after the acute infection, patients still display dysregulated gene expression related to vascular, platelet and coagulation pathways, including PF4 (platelet factor 4), which may explain the prolonged thrombotic risk following COVID-19.
+Patients with end-stage kidney disease (ESKD) are at high risk of severe COVID-19. Here, we perform longitudinal blood sampling of ESKD haemodialysis patients with COVID-19, collecting samples pre-infection, serially during infection and after clinical recovery. Using plasma proteomics, and RNA-sequencing and ow cytometry of immune cells, we identify transcriptomic and proteomic signatures of COVID-19 severity, and nd distinct temporal molecular pro les in patients with severe disease. Supervised learning reveals that the plasma proteome is a superior indicator of clinical severity than the PBMC transcriptome. We show that a decreasing trajectory of plasma LRRC15 (Leucine-rich repeat containing 15), a proposed co-receptor for SARS-CoV-2, is associated with a more severe clinical course. We observe that two months after the acute infection, patients still display dysregulated gene expression related to vascular, platelet and coagulation pathways, including PF4 (platelet factor 4), which may explain the prolonged thrombotic risk following COVID-19.
 
 ## Background information: Methodology 
 
@@ -59,13 +59,13 @@ COVID positive Wave 1 53 - 16 = 37
 COVID Negative Wave 1 59 - 6 = 53
 COVID positive wave 2 17 -1
 
-#1 importing data sets 
+#1 Importing data sets 
 ```{r}
 combined_dataset <- read.csv("combined_dataset.csv")
 features_somameres <- read.csv("feature_meta.csv")
 ```
 
-#2 start of data exploration
+#2 Start of data exploration
 This function head() was used to display the first few rows of the dataset, providing a quick overview of the data structure and allowing us to verify that the dataset was loaded correctly.
 ```{r}
 head(combined_dataset)
@@ -97,7 +97,7 @@ summary(features_somameres)
 
 skimr() provides a more detailled summary, including missing values. Tested on the combined_dataset but excluded for the same reason as previous code. 
 ```{r}
-#install.packages("skimr")
+install.packages("skimr")
 library(skimr)
 skim(features_somameres)
 skim
@@ -155,7 +155,7 @@ feature_somameres <- features_somameres %>% select(-c(col_check))
 head(feature_somameres)
 ```
 
-##3 Subsets data
+#3 Subsets data
 We create these subsets during our data exploration to isolate specific patient groups and better understand patterns related to case-control status and wave-specific characteristics.
 ```{r}
 # Make a list with all the negative patients in the first wave
@@ -196,7 +196,7 @@ features_wave1_COVID_negative <- combined_dataset_features %>% filter(case_contr
 #4 Paired samples per individual
 grouping the data by individual to assess how many measurements each patient has
 ```{r}
-# How many samples are teken from each patient
+# How many samples are taken from each patient
 combined_dataset %>%
   group_by(individual_id) %>%
   summarise(n_samples = n())
@@ -204,10 +204,12 @@ combined_dataset %>%
 ```
 
 
-#5 missing values
+#5 Missing values
 
 checking for missing values in the combined dataset 
 ```{r}
+combined_dataset[combined_dataset == ""] <- NA
+
 # Missing values summary
 missing_summary <- combined_dataset%>%
   summarise(across(everything(), ~ sum(is.na(.)))) %>%
@@ -251,9 +253,9 @@ missing_summary <- transposed_df %>%
 missing_summary
 ```
 INTERPRETATION:
-After analyzing the data, it appears to be a bias. Whenever there is an NA in one of the columns, the other columns also have an NA. This results in the same number of missing values for WHO_severity, fatal_disease, radiology_evidence_covid, and time_from_first_positive_swab.
+After analysing the data, it appears to be a bias. Whenever there is an NA in one of the columns, the other columns also have an NA. This results in the same number of missing values for WHO_severity, fatal_disease, radiology_evidence_covid, and time_from_first_positive_swab.
 
-#6 data outliers
+#6 Data outliers
 Finding out how the protein abundances are distributed and if there are big outliers
 ```{r}
 # Pivot the protein abundances dataframe (combindes_dataset_protein) to a longer dataframe
@@ -276,7 +278,8 @@ pivot_longer_proteins %>%
 
 ```
 INTERPRETATION:
-The histogram and box plot of all protein abundances clearly show a large number of outliers, with a long tail to the right. To make this data less skewed,we will perform a log transformation
+The histogram and box plot of all protein abundances clearly show a large number of outliers, with a long tail to the right. To make this data less skewed,we will add a cut-off value
+
 ```{r}
 # Calculate the median, and the standard deviation for the protein abundances. This will be used to set a cut of value.
 sd_prot_abundances <- sd(pivot_longer_proteins$abundances)
@@ -306,19 +309,15 @@ pivot_longer_proteins_cut_of %>%
   labs(title = "Boxplot protein abundances below cut of")
 
 ```
-INTERPRETATION: ....
+INTERPRETATION: The histogram and boxplot indicate that there is still a large number of outliers present. Although applying a cut-off value reduces the numbers of outliers, we will proceed without using the cut-off to avoid introducing bias into the analysis.
 
-#7 filtering
+#7 Filtering
 
-GOAL: remove proteins that almost never differ between individuals/conditions.
-HOW?
-- Filter **features**: Check whether certain features can be removed based on variation.
-- Filter **proteins**: Check again for significant variation (small variation provides little information). First do a global analysis and then per individual.
+The goal of filtering is to investigate if there are proteins or patient-meta data that has almost no variation.
 
-#7.1 filtering features
+#7.1 Filtering patient-meta data
 ```{r}
-
-# It first counts how often each category occurs. Then, it takes the most common category and divides it by the total number of people. This tells you what percentage of the dataset consists of the largest category. If the dominance is higher than 80%, you know that one category strongly dominates, and therefore there is little variation.
+# We first count how often each category occurs. Then, we take the most common category and divides it by the total number of people. This tells you what percentage of the dataset consists of the largest category. If the dominance is higher than 80%, you know that one category strongly dominates, and therefore there is little variation.
 
 dominantie <- function(x){
   tb <- table(x)
@@ -331,7 +330,7 @@ sapply(combined_dataset_features[2:17], dominantie)
 INTERPRETATION:
 Based on this code we notice that previous_vte, copd and smoking have a low variation and are therefore not very informative.
 
-#7.2 filtering proteins
+#7.2 Filtering proteins
 ```{r}
 # proteins with a coefficient_of_variance lower than 10%
 low_variance <- combined_dataset_protein %>% 
@@ -343,9 +342,9 @@ low_variance <- combined_dataset_protein %>%
 low_variance
 ```
 INTERPRETATION:
-The data is analyzed for cases and controls. It is important to note that a person in WAVE 1 could have been considered a control, but later developed COVID-19 and is therefore included as a case in WAVE 2. The filtering was performed per measurement, not per person. We know that this method fails to capture biological differences and differences between cases and controls, and therefore the test is not fully accurate. We choose to work independently of patients, but we recognize that this must be taken into account.
+The data is analyzed for cases and controls. It is important to note that a person in WAVE 1 could have been considered a control, but later developed COVID-19 and is therefore included as a case in WAVE 2. We opted to analyse all samples independently and treat each sample as a separate observation. As a result, biological variation within individuals is not accounted for. We chose to proceed with patient-independent analyses for consistency with the dataset structure, but we acknowledge this limitation and consider it when interpreting the results.
 
-#8 Normalisation; log transformation
+#8 Normalisation 
 The paper reports the following: “The expression values for each Somamer were inverse-rank normalised prior to downstream analyses.” However, it is not specified whether the dataset we received contains the raw expression values or values that have already undergone this normalisation. Therefore, our first step will be to determine whether additional normalisation is required.
 
 ```{r}
@@ -360,17 +359,17 @@ qplot(1:length(sample_totals), sample_totals) +
 
 ```
 INTERPRETATION:
-In this figure, we compared the total intensity per sample. The median is the average value of all intensities. We would therefore expect all values to roughly converge around this dotted line, but that is not the case. Some samples are much higher or lower than others, meaning normalization is necessary.
+In this figure, we compared the total intensity per sample. The median is the average value of all intensities. We would therefore expect all values to roughly converge around this dotted line, but that is not the case. Some samples are much higher or lower than others, meaning normalisation is necessary.
 
-The LRRC15 (-moet dit specifiek erbij?) protein values are not normally distributed, which necessitates the use of a log transformation. To evaluate the effect of this transformation, we generated histograms for a single protein before and after log transformation. This comparison illustrates the change in distribution. Following this assessment, the log transformation was applied to all protein measurements.
+We selected a random protein, such as LRRC15, and noticed that its abundance is not normally distributed, which necessitates the use of a log transformation. To evaluate the effect of this transformation, we generated histograms for a single protein before and after log transformation. This comparison illustrates the change in distribution. Following this assessment, the log transformation was applied to all protein measurements.
 
 histogram BEFORE transformation
 ```{r}
 
 ggplot(combined_dataset_protein, aes(x = combined_dataset_protein$LRRC15)) +
   geom_histogram(bins = 100, fill = "steelblue", color = "black", aplha = 0.7) +
-  labs(title = "Histogram of LRRC15",
-       x = "LRRC15 Protein concentration", y = "Frequency") +
+  labs(title = "Histogram of LRRC15 before log-transformation",
+       x = "LRRC15 protein abundance", y = "Frequency") +
   theme_minimal()
 
 ```
@@ -379,7 +378,7 @@ histogram AFTER transformation
 ```{r}
 ggplot(combined_dataset_protein, aes(x = log(combined_dataset_protein$LRRC15))) +
   geom_histogram(bins = 100, fill = "steelblue", color = "black", aplha = 0.7) +
-  labs(title = "Histogram of LRRC15",
+  labs(title = "Histogram of LRRC15 after log-transformation",
        x = "LRRC15 Protein concentration", y = "Frequency") +
   theme_minimal()
 ```
@@ -403,8 +402,8 @@ qplot(1:length(log_sample_totals), log_sample_totals) +
 INTERPRETATION:
 The normalisation appears to be successful, as the values now fall within a narrow range of approximately 50,000–52,000. In addition, the distribution shows greater symmetry around the mean, and large systematic differences between samples have been eliminated.
 
-#10 standarisation
-Standardisation is applied to ensure that all proteins are placed on a comparable scale before visualisation. Because proteins can vary greatly in their absolute abundance, these differences could dominate the heatmap and obscure meaningful patterns. By standardising the log-transformed protein values, we emphasise relative variation across samples, allowing clearer identification of clusters and expression patterns.A heatmap of the non-standardised data is shown first to visualise the raw differences, followed by a heatmap of the standardised data to demonstrate how standardisation improves comparability across proteins.
+#9 Standarisation
+Standardisation is applied to ensure that all proteins are placed on a comparable scale before visualisation. Because proteins can vary greatly in their absolute abundance, these differences could dominate the heatmap and obscure meaningful patterns. By standardising the log-transformed protein values, we emphasise relative variation across samples, allowing clearer identification of clusters and expression patterns. A heatmap of the non-standardised data is shown first to visualise the raw differences, followed by a heatmap of the standardised data to demonstrate how standardisation improves comparability across proteins.
 ```{r}
 # Standardise protein abundance
 protein_scaled <- as.data.frame(scale(proteins_log))
@@ -424,8 +423,8 @@ Heatmap(protein_scaled, name="Scaled protein abundance", use_raster = FALSE, sho
 INTERPRETATION:
 The heatmap reveals extensive heterogeneity in plasma protein expression across samples, with clear clusters of proteins showing coordinated up- or down-regulation. Notably, the NEGATIVE severity group occupies a distinct region of the expression space, characterized predominantly by lower scaled protein abundance compared to COVID-19–positive samples. In contrast, mild to critical cases display progressively stronger deviations from this baseline, with several protein modules exhibiting severity-related gradients. These patterns indicate that COVID-19 infection, particularly increasing clinical severity, is associated with broad, systematic alterations in the plasma proteome.
 
-#11 DEA
-Find the protein that is most differentially expressed in the COVID-cases, in comparison with the negative controles. We will visualise this with a vulcano plot
+#10 DEA
+Find the protein that is most differentially expressed in the COVID-cases, in comparison with the negative controls. We will visualise this with a vulcano plot
 
 ```{r}
 if (!requireNamespace("BiocManager", quietly = TRUE))
