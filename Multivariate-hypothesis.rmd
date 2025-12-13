@@ -1,20 +1,28 @@
 ---
 title: "R Notebook"
 output:
-  pdf_document: default
+  html_document:
+    df_print: paged
   html_notebook: default
   word_document: default
+  pdf_document: default
 ---
 
 #STEP 1: Choose the variables
 
-We aim to investigate whether COVID-19 severity influences COL11A2 expression, whether patient sex affects COL11A2 expression and whether there is an interaction between sex and disease severity in determining COL11A2 levels. The hypotheses are formulated as follows:
--	Null hypothesis (H0): The expression of COL11A2 will not be influenced by the sex of the patient and the Covid-19 severity
--	Alternative hypothesis (H1): The expression of COL11A2 will be influenced by the sex of the patient and the Covid-19 severity
+We aim to investigate whether COVID-19 severity influences COL11A2 expression, whether patient sex affects COL11A2 expression and whether there is an interaction between sex and disease severity in determining COL11A2 levels. We investigate three questions (H0 = null hypothesis and H1= alternative hypothesis):
+
+H0a: The mean standardized COL11A2 expression is equal across all COVID-19 severity groups.
+H1a: At least one COVID-19 severity group has a different mean standardized COL11A2 expression.
+
+H0b: The mean standardized COL11A2 expression is equal between male and female patients.
+H1b: The mean standardized COL11A2 expression differs between male and female patients.
+
+H0c: There is no interaction between sex and COVID-19 severity on mean standardized COL11A2 expression.
+H1c: The effect of COVID-19 severity on mean standardized COL11A2 expression differs between males and females.  
 
 Why COL11A2?
-This protein was selected because it was mentioned in the article. This collagen protein is part of the down-regulated pathways “Integrin cell surface interactions” and “Collagen biosynthesis and modifying enzymes,” both of which include multiple collagen proteins. 
-
+This protein was selected because it was mentioned in the reference article. COL11A2 is a collagen component involved in two pathways that were found to be downregulated in severe COVID-19: Integrin cell surface interactions and Collagen biosynthesis and modifying enzymes. Since these pathways include multiple collagen proteins, COL11A2 is a biologically meaningful candidate for investigating severity-associated differences.
 
 
 ```{r}
@@ -28,7 +36,11 @@ library(tidyverse)
 ```
 
 #STEP 2: Make the dataset
-Because WHO_temp_severity and the protein of interest are present in other dataframes, we have to make a new dataframe. In this way we can easily check our hypothesis.
+To test our hypotheses, we need a dataset that contains both the clinical variables (sex and WHO_temp_severity) and the standardized, log-transformed expression values of the protein of interest (COL11A2). These variables originate from different sections of the full dataset, so a new dataframe must be constructed.
+
+During the earlier data-exploration phase, we verified that there were no missing values in sex, WHO_temp_severity or the COL11A2 protein measurements. Therefore, no additional imputation or row removal is required in this preprocessing step.
+
+We proceed by importing the full dataset, extracting the protein expression matrix, applying a log-transformation followed by standardization (z-scaling), and combining it with the relevant clinical features into a single analysis-ready dataframe.
 ```{r}
 # Import whole dataset
 combined_dataset <- read.csv("combined_dataset.csv")
@@ -46,6 +58,7 @@ data_multivariate$severity <- factor(data_multivariate$severity, levels = c("NEG
 
 
 #STEP 3: Check for outliers
+To identify potential extreme values, we will calculate the interquartile range (IQR) of COL11A2 and determine which observations fall outside the 1.5×IQR boundaries, as these will be considered statistical outliers.
 ```{r}
 protein <- combined_dataset$COL11A2
 
@@ -66,7 +79,7 @@ boxplot(protein, main="Boxplot COL11A2", ylab="Expression")
 
 ```
 INTERPRETATION:
-There are outliers present but we will chose to not remove these as we cannot explain why these are present.
+Although several outliers are present (as seen in boxplot), there is no evidence of measurement or data-entry error and the values appear biologically plausible. Since we have no objective reason to exclude them, the outliers were retained for all subsequent analyses.
 
 
 #STEP 4: Data exploration
@@ -79,9 +92,9 @@ ggplot(data_multivariate, aes(x = severity, y = COL11A2, fill= severity)) +
   geom_jitter (width =0.15, alpha =0.4, color = "black") +
   scale_fill_brewer(palette = "Set2") +
   theme_minimal()+
-  labs(title = "COL11A2 levels across the different severity groups")
+  labs(title = "COL11A2 levels across the different severity groups", x = "severity groups", y = "Standardized log(COL11A2) expression")
 ```
-We also looked at the distribution of COL11A2 in male and female patients. We noticed that there was not big difference between the two groups.
+We also looked at the distribution of COL11A2 in male and female patients. We noticed that there was no big difference between the two groups.
 
 ```{r}
 ggplot(data_multivariate, aes(x = sex, y = COL11A2, fill= sex)) +
@@ -107,30 +120,31 @@ ggqqplot(proteins_scaled$COL11A2) +
   xlim(0,3)+ 
   labs(title = "Normalization of COL11A2", x= NULL, y=NULL)
 ```
+The QQ-plot shows that COL11A2 values follow the theoretical normal distribution reasonably well, with only mild deviations in the upper tail.
 
 
-
-**Normalization of severity**
+**Normalization of COL11A2 within severity groups**
 ```{r}
 data_multivariate %>%
   ggplot(aes(sample = COL11A2)) +
   geom_qq() + 
   geom_qq_line() +
   facet_wrap(~severity) +
-  labs( title= "Normalization of severity" )
+  labs( title= "Normalization of COL11A2 within severity groups" )
 ```
+We assessed the normality of COL11A2 within each severity group using QQ-plots. Across groups, the distributions follow the theoretical normal line reasonably well, with mild deviations, especially in the severe and critical categories, largely attributable to small sample sizes and a few extreme observations. These deviations are not substantial enough to violate the normality assumption for the subsequent ANOVA.
 
-**Normalization of sex**
+**Normalization of COL11A2 within sex groups**
 ```{r}
 data_multivariate %>%
   ggplot(aes(sample = COL11A2)) +
   geom_qq() + 
   geom_qq_line() +
   facet_wrap(~sex)+
-  labs( title= "Normalization of sex" )
+  labs( title= "Normalization of COL11A2 within sex groups" )
 ```
-Interpretation of the normality:
-The normal distribution is not perfect, largely due to the presence of outliers.
+INTERPRETATION:
+The distribution deviates slightly from perfect normality due to the presence of a few outliers, but overall the residual pattern remains sufficiently close to normal for the assumptions of the model to hold.
 
 
 **Check assumptions based on a simple linear regression model**
@@ -139,15 +153,18 @@ lm_COL11A2 <- lm(COL11A2 ~ sex + severity + sex*severity, data= data_multivariat
 plot(lm_COL11A2)
 ```
 INTERPRETATION:
-- linearity: Good because: 
-                      1) There is almost no curvature in the red line which means that there is no systematic pattern. 
-                      2) The residuals are randomly scattered around zero (no under or over prediction)
-                      3) If the variance of the residuals increased or decreased with fitted values, we would see a funnel or cone.                           This is not present
-                      4) there are a few outliers but this will not form a problem
-- Normality: looks good
-- Homocedacity: The red line is mostly flat with only slight deviations. The spread of residuals doesn’t show a strong funnel or curvature. This suggests that our model likely meets the equal variance assumption.
-- Outliers: There are a few present
 
+- Linearity
+The residuals-versus-fitted plot indicates that the linearity assumption is met. The smoothing line shows almost no curvature, and the residuals are randomly scattered around zero, suggesting no systematic under- or overprediction. The spread of residuals does not show a funnel shape, and although a few outliers are present, they do not distort the overall pattern.
+
+- Normality of residuals
+The QQ-plot shows that most residuals lie close to the theoretical normal line, with only minor tail deviations. This indicates that the normality assumption is reasonably satisfied.
+
+- Homoscedasticity (equal variance)
+The residual spread appears roughly constant across fitted values. The red smoothing line remains nearly flat and no funneling or curvature is observed, suggesting that the equal-variance assumption is met.
+
+- Outliers
+A small number of outliers are visible, but they appear to be isolated observations rather than signs of structural problems in the data. Because no evidence of measurement error was found, they are retained in the analysis.
 
 
 # STEP 6: The two-sample Anova test
@@ -157,25 +174,21 @@ Because our data is approximately normally distributed, we selected a two-way AN
 ```{r}
 anova_model <- aov( COL11A2 ~ severity + sex + severity * sex , data = data_multivariate)
 summary(anova_model)
+library(effectsize)
+
+eta_squared(anova_model)
 ```
 INTERPRETATION:
-- The difference between severity groups is significant (p < 0,05) 
-  = The covid 19 severity has a significant effect on the expression of COL11A2
+At the 5% significance level, the two-way ANOVA shows a statistically significant effect of COVID-19 severity on standardized log-transformed COL11A2 expression (F(4, 231) = 34.8, p < 0.001). In contrast, neither sex (F(1, 231) = 1.10, p = 0.296) nor the interaction between sex and severity (F(4, 231) = 0.48, p = 0.751) is significant. We therefore reject the null hypothesis for severity, but do not reject the null hypotheses for sex and for the sex-severity interaction.
 
-- The difference between men and female is not significant (p > 0,05)
-  = Sex does not have a significant effect on the expression of COL11A2
+effect size:
+COVID-19 severity shows a large effect on COL11A2 expression (partial η² = 0.38), indicating that approximately 38% of the variance is explained by severity. In contrast, sex and the sex×severity interaction have negligible effect sizes (partial η² < 0.01).
 
-- The interaction between sex and severity groups is not significant (p > 0,05)
-  = The covid 19 severity is +/- the same in male and female
-  
-  
-  
 The anova model was repeated for the interaction between COL11A2 and severity to use for the post hoc analysis 
 ```{r}
 sign_anova <- aov( COL11A2 ~ severity , data = data_multivariate)
 summary(sign_anova)
 ```
-
 
 #STEP 7: Post hoc analyse
 
@@ -197,8 +210,7 @@ par(mar = c(5, 12, 4, 2)) # bottom, left, top, right
 plot(mcp)
 ```
 INTERPRETATION:
-Tukey post-hoc comparisons showed that all severity groups (mild, moderate, severe and critical) exhibited significantly lower COL11A2 expression compared with the negative group (all p < 0 .001). Furthermore, a clear decrease in expression was observed from mild to moderate, severe and critical disease (all p < 0 .05). The difference between moderate and severe as well as the difference between moderate and critical is also significant. This can however be due to a limited sample size of the severe and critical group.
-
+The Tukey post-hoc test shows that mean standardized log-COL11A2 expression is significantly lower in all COVID-19 severity groups (mild, moderate, severe, critical) compared with the NEGATIVE group (all adjusted p < 0.001). For example, the critical group has on average 2.06 standard units lower COL11A2 expression than the NEGATIVE group (estimate = −2.06, 95% CI [−2.73, −1.39]). In addition, each successive increase in severity from mild to moderate, severe and critical is associated with a significant further decrease in COL11A2 expression (all adjusted p < 0.05), except for the contrast between severe and critical, where the 95% confidence interval includes zero (estimate = −0.29, 95% CI [−1.03, 0.45], p = 0.82). At a global 5% significance level we therefore conclude that COL11A2 expression decreases progressively with increasing COVID-19 severity.
 
 **Visualisation**
 
@@ -212,13 +224,17 @@ ggplot(data_multivariate, aes(x = severity, y = COL11A2, fill = sex)) +
   geom_jitter (width =0.15, alpha =0.4, color = "black") +
   scale_fill_brewer(palette = "Set2") +
   theme_minimal() +
-  labs(title = "The effect of sex and Covid-19 severity in COL11A2", x = "WHO temp severity", y = "Standardized COL11A2 expression")
+  labs(title = "The effect of sex and Covid-19 severity on COL11A2 expression", x = "severity groups", y = "Standardized log(COL11A2) expression")
 
 ```
-CONCLUSION: 
-COVID-19 severity has a significant impact on COL11A2 expression. In fact, COL11A2 appears to serve as a marker of disease severity and is downregulated as COVID-19 becomes more severe.
-In contrast, sex does not significantly influence COL11A2 expression, and COVID-19 severity is approximately the same in both males and females.
-Only within the severe and critical groups do we observe a more pronounced difference between male and female patients. This may be explained by the limited sample size in these categories, as well as potential imbalance in sex distribution. Based on this boxplot, we could hypothesize that COL11A2 protein expression is progressively downregulated with increasing COVID-19 severity.
+FINAL CONCLUSION:
 
+H0a (severity): We reject the null hypothesis (p < 0.001). COVID-19 severity has a significant effect on standardized log-COL11A2 expression. Both the ANOVA and Tukey post-hoc tests show a progressive decrease in COL11A2 levels from NEGATIVE → mild → moderate → severe → critical, with all pairwise differences significant except severe–critical. The boxplot visually confirms this downward trend, indicating that COL11A2 is strongly downregulated as disease severity increases.
 
+H0b (sex): We do not reject the null hypothesis (p = 0.30). There is no statistically significant difference in mean COL11A2 expression between male and female patients. The figure shows substantial overlap between sexes in each severity category, supporting this result.
+
+H0c (interaction): We do not reject the null hypothesis (p = 0.75). The effect of COVID-19 severity on COL11A2 expression does not differ between males and females. The boxplot shows small apparent sex differences only in the severe and critical groups, but these patterns are likely due to limited and imbalanced sample sizes rather than a true interaction.
+
+Overall conclusion:
+Overall, COL11A2 expression decreases consistently with increasing COVID-19 severity, indicating a strong and significant severity effect visible in both the statistical tests and the final figure. Sex and the sex×severity interaction are not significant, and the minor visual differences in the most severe groups likely reflect small sample sizes rather than true biological effects. Thus, the severity-related decline in COL11A2 appears robust and independent of patient sex.
 
