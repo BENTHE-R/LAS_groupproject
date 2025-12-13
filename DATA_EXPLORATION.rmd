@@ -417,9 +417,9 @@ Heatmap(combined_dataset_protein %>% column_to_rownames("X")  , use_raster = FAL
 Heatmap(protein_scaled, use_raster = FALSE, show_row_names = FALSE, show_column_names = FALSE)
 
 # heatmap standarsised protein abundances + row annotations on WHO_temp_severity
-annotation_WHO_temp_severity = rowAnnotation(WHO_severity = combined_dataset_features$WHO_temp_severity,
-                                             col = list(WHO_severity = c("NEGATIVE"="#ef476f", "mild"="#ffd166", "moderate"="#06d6a0", "severe"="#118ab2", "critical"="#073b4c" )))
-Heatmap(protein_scaled, name="Scaled protein abundance", use_raster = FALSE, show_row_names = FALSE, show_column_names = FALSE, right_annotation = annotation_WHO_temp_severity)
+annotation_WHO_temp_severity = rowAnnotation(COVID_severity = combined_dataset_features$WHO_temp_severity,
+                                             col = list(COVID_severity = c("NEGATIVE"="#ef476f", "mild"="#ffd166", "moderate"="#06d6a0", "severe"="#118ab2", "critical"="#073b4c" )))
+Heatmap(protein_scaled, name="Scaled protein abundance", use_raster = FALSE, show_row_names = FALSE, show_column_names = FALSE, right_annotation = annotation_WHO_temp_severity,column_title = "log-transformed scaled protein abundance", row_title = "patient samples")
 ```
 INTERPRETATION:
 The heatmap reveals extensive heterogeneity in plasma protein expression across samples, with clear clusters of proteins showing coordinated up- or down-regulation. Notably, the NEGATIVE severity group occupies a distinct region of the expression space, characterized predominantly by lower scaled protein abundance compared to COVID-19–positive samples. In contrast, mild to critical cases display progressively stronger deviations from this baseline, with several protein modules exhibiting severity-related gradients. These patterns indicate that COVID-19 infection, particularly increasing clinical severity, is associated with broad, systematic alterations in the plasma proteome.

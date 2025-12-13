@@ -61,7 +61,12 @@ IQR_per_protein <- proteins_scaled_ids %>% pivot_longer(!X, names_to = "prots", 
   arrange(desc(IQR))
 
 # The top 10 proteins with the highest inter queartile range
-IQR_per_protein[1:5,]
+IQR_per_protein[1:5,] 
+
+IQR_per_protein[1:10,] %>% ggplot(aes(x = prots, y = IQR)) + 
+  geom_bar(fill = "steelblue", stat="identity", width = 0.5) + 
+  theme_minimal() +
+  labs(title = "Proteins with highes interquantile range (IQR)", x = "Protein name", y = "IQR")
 ```
 Based on the IQR we will conclude that MX1 has the highest variable expression among all samples (IQR = 2.103544). This observation is reinforced by a DEA, comparing the covid positives and negatives, the vulcano plot shows MX1 as the most differential expressed protein.
 
@@ -95,7 +100,7 @@ fit_negpos <- contrasts.fit(fit, contrast.matrix_negpos)
 #Bayes statistic of differential expression
 fit_negpos <- eBayes(fit_negpos)
 
-volcanoplot(fit_negpos, coef=1, highlight = 20, names=rownames(fit_negpos))
+volcanoplot(fit_negpos, coef=1, highlight = 1, names=rownames(fit_negpos))
 
 ```
 
@@ -136,7 +141,9 @@ df_univariate_analysis_scaled %>% ggplot(mapping = aes (x= WHO_temp_severity, y=
   geom_jitter (color="black", width = 0.15) +
   scale_fill_brewer(palette = "Set2") +
   theme_minimal() +
-  labs(title = "Boxplots per severity group")
+  xlab("COVID-severity group")+
+  ylab("Log-transformed, standardised MX1 abundance")+
+  labs(title = "MX1 abundance per severity group")
 ```
 Evaluation assumptions:
 1. Normality of the protein expression
@@ -157,6 +164,7 @@ Alternative hypothesis (H₁): There is a difference in MX1 expression levels be
 ```{r}
 kw_results <- kruskal.test(df_univariate_analysis_scaled, MX1~WHO_temp_severity)
 kw_results
+
 #install.packages("dunn.test")
 library(dunn.test)
 
