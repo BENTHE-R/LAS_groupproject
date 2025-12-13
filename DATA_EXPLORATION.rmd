@@ -231,7 +231,7 @@ missing_summary %>%
 is.na
 ```
 INTERPRETATION:
-The missing values have been examined and we note that in WHO_severity, fatal_disease, radiology_evidence_covid, and time_from_first_positive_swab there are each  53 missing values. This could indicate that 53 individuals consistently have a missing value in these columns.We will investigate this further by transposing data and calculating the percentage of missing value per person.   
+The missing values have been examined and we note that in WHO_severity, fatal_disease, radiology_evidence_covid and time_from_first_positive_swab there are each 53 missing values. This could indicate that 53 individuals consistently have a missing value in these columns.We will investigate this further by transposing data and calculating the percentage of missing value per person.   
 
 ```{r}
 # transpose the data (column becomes row and vice versa)
@@ -254,21 +254,6 @@ INTERPRETATION:
 After analyzing the data, it appears to be a bias. Whenever there is an NA in one of the columns, the other columns also have an NA. This results in the same number of missing values for WHO_severity, fatal_disease, radiology_evidence_covid, and time_from_first_positive_swab.
 
 #6 data outliers
-nele haar deel, houden we dat? 
-```{r}
-outlier_list <- sapply(combined_dataset_protein[,2:7241], function(x) {
-  Q1 <- quantile(x, 0.25, na.rm=TRUE)
-  Q3 <- quantile(x, 0.75, na.rm=TRUE)
-  IQR <- Q3 - Q1
-  sum(x < (Q1 - 1.5*IQR) | x > (Q3 + 1.5*IQR))
-})
-
-# Toont aantal outliers per proteïne
-outlier_list <- outlier_list[outlier_list > 0]
-#outlier_list
-```
-
-senne: 
 Finding out how the protein abundances are distributed and if there are big outliers
 ```{r}
 # Pivot the protein abundances dataframe (combindes_dataset_protein) to a longer dataframe
@@ -291,7 +276,7 @@ pivot_longer_proteins %>%
 
 ```
 INTERPRETATION:
-The histogram and box plot of all protein abundances clearly show a large number of outliers, with a long tail to the right. To make this data less squid,we will perform a log transformation
+The histogram and box plot of all protein abundances clearly show a large number of outliers, with a long tail to the right. To make this data less skewed,we will perform a log transformation
 ```{r}
 # Calculate the median, and the standard deviation for the protein abundances. This will be used to set a cut of value.
 sd_prot_abundances <- sd(pivot_longer_proteins$abundances)
@@ -321,6 +306,7 @@ pivot_longer_proteins_cut_of %>%
   labs(title = "Boxplot protein abundances below cut of")
 
 ```
+INTERPRETATION: ....
 
 #7 filtering
 
@@ -357,9 +343,9 @@ low_variance <- combined_dataset_protein %>%
 low_variance
 ```
 INTERPRETATION:
-The data is analyzed for cases and controls. It's important to note that a person in WAVE 1 could have been considered a control, but later developed COVID-19 and is therefore included as a case in WAVE 2. The filtering was performed per measurement, not per person. We know that this method fails to capture biological differences and differences between cases and controls, and therefore the test is not fully accurate. We choose to work independently of patients, but we recognize that this must be taken into account.
+The data is analyzed for cases and controls. It is important to note that a person in WAVE 1 could have been considered a control, but later developed COVID-19 and is therefore included as a case in WAVE 2. The filtering was performed per measurement, not per person. We know that this method fails to capture biological differences and differences between cases and controls, and therefore the test is not fully accurate. We choose to work independently of patients, but we recognize that this must be taken into account.
 
-#8 Normalisation
+#8 Normalisation; log transformation
 The paper reports the following: “The expression values for each Somamer were inverse-rank normalised prior to downstream analyses.” However, it is not specified whether the dataset we received contains the raw expression values or values that have already undergone this normalisation. Therefore, our first step will be to determine whether additional normalisation is required.
 
 ```{r}
@@ -376,7 +362,6 @@ qplot(1:length(sample_totals), sample_totals) +
 INTERPRETATION:
 In this figure, we compared the total intensity per sample. The median is the average value of all intensities. We would therefore expect all values to roughly converge around this dotted line, but that is not the case. Some samples are much higher or lower than others, meaning normalization is necessary.
 
-#9 log transformation
 The LRRC15 (-moet dit specifiek erbij?) protein values are not normally distributed, which necessitates the use of a log transformation. To evaluate the effect of this transformation, we generated histograms for a single protein before and after log transformation. This comparison illustrates the change in distribution. Following this assessment, the log transformation was applied to all protein measurements.
 
 histogram BEFORE transformation
@@ -437,12 +422,16 @@ annotation_WHO_temp_severity = rowAnnotation(WHO_severity = combined_dataset_fea
 Heatmap(protein_scaled, name="Scaled protein abundance", use_raster = FALSE, show_row_names = FALSE, show_column_names = FALSE, right_annotation = annotation_WHO_temp_severity)
 ```
 INTERPRETATION:
-The heatmap reveals extensive heterogeneity in plasma protein expression across samples, with clear clusters of proteins showing coordinated up- or down-regulation. Notably, the NEGATIVE severity group occupies a distinct region of the expression space, characterized predominantly by lower scaled protein abundance compared to COVID-19–positive samples. In contrast, mild to critical cases display progressively stronger deviations from this baseline, with several protein modules exhibiting severity-related gradients. These patterns indicate that COVID-19 infection—and particularly increasing clinical severity—is associated with broad, systematic alterations in the plasma proteome.
+The heatmap reveals extensive heterogeneity in plasma protein expression across samples, with clear clusters of proteins showing coordinated up- or down-regulation. Notably, the NEGATIVE severity group occupies a distinct region of the expression space, characterized predominantly by lower scaled protein abundance compared to COVID-19–positive samples. In contrast, mild to critical cases display progressively stronger deviations from this baseline, with several protein modules exhibiting severity-related gradients. These patterns indicate that COVID-19 infection, particularly increasing clinical severity, is associated with broad, systematic alterations in the plasma proteome.
 
 #11 DEA
 Find the protein that is most differentially expressed in the COVID-cases, in comparison with the negative controles. We will visualise this with a vulcano plot
 
 ```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("edgeR")
 library(edgeR)
 
 # transpose the combined_dataset_protein, this is needed for a DEA.

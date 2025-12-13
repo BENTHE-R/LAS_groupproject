@@ -1,6 +1,9 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  pdf_document: default
+  html_notebook: default
+  word_document: default
 ---
 
 #STEP 1: Choose the variables
@@ -15,6 +18,8 @@ This protein was selected because it was mentioned in the article. This collagen
 
 
 ```{r}
+install.packages("ggpubr")
+
 library(ggplot2)
 library(dplyr)
 library(ggpubr)
@@ -34,7 +39,6 @@ proteins_log <- log(combined_dataset_protein[,2:7241])
 proteins_scaled <- as.data.frame(scale(proteins_log))
 
 feature_df <-combined_dataset[,7242:7258]
-
 
 data_multivariate <- data.frame( COL11A2 = proteins_scaled$COL11A2, severity = feature_df$WHO_temp_severity, sex = feature_df$sex)
 data_multivariate$severity <- factor(data_multivariate$severity, levels = c("NEGATIVE", "mild", "moderate", "severe", "critical"))
@@ -94,7 +98,7 @@ Only within the severe and critical groups do we observe a more pronounced diffe
 
 
 
-#Step 5: Check assumptions
+#STEP 5: Check assumptions
 
 **Normalization of protein COL11A2**
 ```{r}
