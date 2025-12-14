@@ -4,6 +4,8 @@ output: html_document
 date: "2025-11-26"
 ---
 
+#1 Code from the data exploration as basis to start the univariate analysis on:
+In this univariate analysis, we aim to asses whether the protein with the highest overall variability in abundance differs between the COVID-severity groups.
 ```{r}
 # import libraries
 library(tidyverse)
@@ -51,6 +53,7 @@ combined_dataset_features %>%
   theme_minimal() +
   labs(title = "Distribution of WHO_temp_severity", x = "WHO_temp_severity", y = "Count")
 ```
+#2 Identifying the most variable protein: 
 ```{r}
 # Variances of proteins
 cv <- function (x) {sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE) * 100}
@@ -68,7 +71,7 @@ IQR_per_protein[1:10,] %>% ggplot(aes(x = prots, y = IQR)) +
   theme_minimal() +
   labs(title = "Proteins with highes interquantile range (IQR)", x = "Protein name", y = "IQR")
 ```
-Based on the IQR we will conclude that MX1 has the highest variable expression among all samples (IQR = 2.103544). This observation is reinforced by a DEA, comparing the covid positives and negatives, the vulcano plot shows MX1 as the most differential expressed protein.
+Based on the IQR we will conclude that MX1 has the highest variable expression among all samples (IQR = 2.103544), although the difference with the IQR of other proteins is verry small. To further asses the variability of protein abundance we performed a DEA, this reinforced the previous observation. In the DEA we compared the covid positives and negatives, the vulcano plot shows MX1 as the most differential expressed protein.
 
 ```{r}
 #install.packages("BiocManager")
@@ -103,8 +106,10 @@ fit_negpos <- eBayes(fit_negpos)
 volcanoplot(fit_negpos, coef=1, highlight = 1, names=rownames(fit_negpos))
 
 ```
+CONCLUSION: We will use MX1 in this univariate analysis
 
-# Hypotheses
+#3 Hypotheses
+In this univariate analysis, we aim to asses whether MX1 abundance differs between the COVID-severity groups.
 Null hypothesis (H₀): There is no difference in MX1 expression levels across all 5 severity groups.
 Alternative hypothesis (H₁): There is a difference in MX1 expression levels between the 5 severity groups.
 
@@ -179,6 +184,8 @@ dunn_results_df
 ```
 
 ```{r}
+## Calculating confidence intervals of differences in mean protein abundance to support the post-hoc analysis
+
 data <- df_univariate_analysis_scaled %>% select(WHO_temp_severity, MX1)
 
 # Function to calculate confidence interval for difference in means
@@ -250,11 +257,11 @@ ggplot(confidence_intervals_df, aes(x = comparison, y = mean_diff)) +
   geom_hline(yintercept=0, linetype="dashed", color = "red") +
   geom_point() +
   geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.2) +
-  labs(title = "Confidence Intervals for Mean Differences",
+  labs(title = "Confidence Intervals for Mean Differences of MX1 abundance",
        x = "Comparison",
-       y = "Mean Difference") +
+       y = "Log-transformed, standardised MX1 abundance") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 Coclusion:
-A Kruskal-Wallis test reveals a significant difference in MX1 expression among the different covid severity groups (p-value < 2.2e-16).
+The Kruskal-Wallis test revealed an extremely significant difference in MX1 expression across COVID-19 severity groups (p < 0.0001). MX1 abundance in COVID-negative patients differed extremely significantly from all COVID-positive groups: mild COVID (p < 0,0001, 95% CI = 1.27±0.23), moderate COVID (p < 0,0001, 95% CI = 1.69±0.18), severe COVID (p < 0,0001, 95% CI = 2.08±0.15), critical COVID (p<0,0001, CI = 1.68±0.23).  Additionally, a significant difference was observed between the mild and severe COVID groups (p<0,001, CI = 0.80±0.32). These results are clearly illustrated in the boxplots (Fig …).
