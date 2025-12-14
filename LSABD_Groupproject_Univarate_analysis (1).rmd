@@ -16,10 +16,6 @@ library(stats)
 combined_dataset <- read.csv("combined_dataset.csv")
 features_somameres <- read.csv("feature_meta.csv")
 
-# Heads of both combined_datasets
-head(combined_dataset)
-head(features_somameres)
-
 # Split the combined_dataset in protein expression levels and meta data
 combined_dataset_protein <-combined_dataset[,1:7241]
 combined_dataset_features <-combined_dataset[,7242:7258]
