@@ -26,7 +26,7 @@ This protein was selected because it was mentioned in the reference article. COL
 
 
 ```{r}
-install.packages("ggpubr")
+#install.packages("ggpubr")
 
 library(ggplot2)
 library(dplyr)
@@ -196,7 +196,7 @@ We know that Covid-19 severity has a significant effect on the expression of COL
 
 
 ```{r}
-install.packages("multcomp")
+#install.packages("multcomp")
 library(multcomp)
 
 mcp <- glht(sign_anova,linfct = mcp (severity = 'Tukey' ))
@@ -205,6 +205,7 @@ summary(mcp)
 
 ```{r}
 confint(mcp)
+
 
 par(mar = c(5, 12, 4, 2)) # bottom, left, top, right
 plot(mcp)

@@ -57,7 +57,7 @@ Data Processing Protocol: 48 Somamers were removed due to QC failure, so the fin
 
 COVID positive Wave 1 53 - 16 = 37
 COVID Negative Wave 1 59 - 6 = 53
-COVID positive wave 2 17 -1
+COVID positive wave 2 17 -1 =16
 
 #1 Importing data sets 
 ```{r}
@@ -97,7 +97,7 @@ summary(features_somameres)
 
 skimr() provides a more detailled summary, including missing values. Tested on the combined_dataset but excluded for the same reason as previous code. 
 ```{r}
-install.packages("skimr")
+#install.packages("skimr")
 library(skimr)
 skim(features_somameres)
 skim
@@ -278,7 +278,7 @@ pivot_longer_proteins %>%
 
 ```
 INTERPRETATION:
-The histogram and box plot of all protein abundances clearly show a large number of outliers, with a long tail to the right. To make this data less skewed,we will add a cut-off value
+The histogram and box plot of all protein abundances clearly show a large number of outliers, with a long tail to the right. To make this data less skewed, we will try implement a cut-off value
 
 ```{r}
 # Calculate the median, and the standard deviation for the protein abundances. This will be used to set a cut of value.
@@ -309,7 +309,7 @@ pivot_longer_proteins_cut_of %>%
   labs(title = "Boxplot protein abundances below cut of")
 
 ```
-INTERPRETATION: The histogram and boxplot indicate that there is still a large number of outliers present. Although applying a cut-off value reduces the numbers of outliers, we will proceed without using the cut-off to avoid introducing bias into the analysis.
+INTERPRETATION: The histogram and boxplot indicate that there is still a large number of outliers present. Although applying a cut-off value reduces the number of outliers, we will proceed without using the cut-off to avoid introducing bias into the analysis.
 
 #7 Filtering
 
@@ -337,9 +337,10 @@ low_variance <- combined_dataset_protein %>%
   pivot_longer(!X, names_to = "prots", values_to = "abundances") %>%
   group_by(prots) %>%
   summarise(coefficient_of_variance = sd(abundances, na.rm = TRUE) / mean(abundances, na.rm = TRUE) * 100) %>%
-  filter(coefficient_of_variance < 10) %>%
-  arrange(coefficient_of_variance)
+  arrange(desc(coefficient_of_variance))
 low_variance
+
+
 ```
 INTERPRETATION:
 The data is analyzed for cases and controls. It is important to note that a person in WAVE 1 could have been considered a control, but later developed COVID-19 and is therefore included as a case in WAVE 2. We opted to analyse all samples independently and treat each sample as a separate observation. As a result, biological variation within individuals is not accounted for. We chose to proceed with patient-independent analyses for consistency with the dataset structure, but we acknowledge this limitation and consider it when interpreting the results.
@@ -427,10 +428,10 @@ The heatmap reveals extensive heterogeneity in plasma protein expression across 
 Find the protein that is most differentially expressed in the COVID-cases, in comparison with the negative controls. We will visualise this with a vulcano plot
 
 ```{r}
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
 
-BiocManager::install("edgeR")
+#BiocManager::install("edgeR")
 library(edgeR)
 
 # transpose the combined_dataset_protein, this is needed for a DEA.
